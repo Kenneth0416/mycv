@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import MouseTrail from "@/components/MouseTrail";
+import RippleEffect from "@/components/RippleEffect";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,6 +30,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} bg-[#050510] text-white antialiased`}
       >
+        <MouseTrail />
+        <RippleEffect />
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
           <div className="absolute -top-1/2 -left-1/4 h-[800px] w-[800px] rounded-full bg-cyan-500/5 blur-[120px]" />
           <div className="absolute -bottom-1/2 -right-1/4 h-[800px] w-[800px] rounded-full bg-purple-500/5 blur-[120px]" />

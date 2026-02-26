@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import TextScramble from "./TextScramble";
 
 const stats = [
   { value: "4+", label: "Projects" },
@@ -31,9 +32,7 @@ export default function About() {
         variants={fadeInUp}
         className="text-3xl font-semibold tracking-tight"
       >
-        <span className="bg-gradient-to-r from-cyan-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient">
-          About Me
-        </span>
+        <TextScramble text="About Me" className="bg-gradient-to-r from-cyan-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient" speed={1.5} />
       </motion.h2>
 
       <motion.div

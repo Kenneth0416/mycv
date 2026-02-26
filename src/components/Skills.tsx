@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { FaBrain, FaCode, FaLayerGroup, FaTools } from "react-icons/fa";
+import TextScramble from "./TextScramble";
 
 const skillGroups = [
   {
@@ -80,8 +81,8 @@ export default function Skills() {
       whileInView="visible"
       viewport={{ once: true, amount: 0.2 }}
     >
-      <h2 className="text-3xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-purple-500 sm:text-4xl">
-        Technical Skills
+      <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+        <TextScramble text="Technical Skills" className="bg-gradient-to-r from-cyan-300 to-purple-500 bg-clip-text text-transparent" speed={1.5} />
       </h2>
 
       <div className="mt-10 grid gap-6 md:grid-cols-2">

@@ -2,6 +2,8 @@
 
 import { motion } from "framer-motion";
 import { FaGithub } from "react-icons/fa";
+import TiltCard from "./TiltCard";
+import TextScramble from "./TextScramble";
 
 const projects = [
   {
@@ -87,8 +89,8 @@ export default function Projects() {
   return (
     <section id="projects" className="mx-auto max-w-6xl px-4 py-20">
       <div className="mb-12 flex items-center justify-between">
-        <h2 className="gradient-text text-3xl font-semibold tracking-tight sm:text-4xl">
-          Featured Projects
+        <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          <TextScramble text="Featured Projects" className="gradient-text" speed={1.5} />
         </h2>
       </div>
       <motion.div
@@ -99,10 +101,10 @@ export default function Projects() {
         viewport={{ once: true, amount: 0.2 }}
       >
         {projects.map((project) => (
+          <TiltCard key={project.title} className="h-full" tiltX={10} tiltY={10}>
           <motion.article
-            key={project.title}
             variants={cardVariants}
-            className="group relative h-full overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur transition-all duration-300 hover:-translate-y-1"
+            className="h-full overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur transition-all duration-300"
           >
             <span className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/0 via-cyan-500/5 to-purple-500/0 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
             <span className="absolute inset-0 rounded-2xl border border-transparent transition-all duration-300 group-hover:border-cyan-500/30" style={{
@@ -137,6 +139,7 @@ export default function Projects() {
               </a>
             </div>
           </motion.article>
+          </TiltCard>
         ))}
       </motion.div>
     </section>
