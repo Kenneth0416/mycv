@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { FaEnvelope, FaGithub, FaMapMarkerAlt } from "react-icons/fa";
+import { FaEnvelope, FaGithub, FaMapMarkerAlt, FaPhone } from "react-icons/fa";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 24 },
@@ -14,9 +14,14 @@ const cardVariants = {
 
 const contactItems = [
   {
-    label: "13631963305@163.com",
-    href: "mailto:13631963305@163.com",
+    label: "kennethkwok9196@gmail.com",
+    href: "mailto:kennethkwok9196@gmail.com",
     Icon: FaEnvelope,
+  },
+  {
+    label: "+852 6117 1096",
+    href: "tel:+85261171096",
+    Icon: FaPhone,
   },
   {
     label: "Hong Kong, China",
