@@ -29,14 +29,16 @@ export default function About() {
     >
       <motion.h2
         variants={fadeInUp}
-        className="text-3xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500"
+        className="text-3xl font-semibold tracking-tight"
       >
-        About Me
+        <span className="bg-gradient-to-r from-cyan-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient">
+          About Me
+        </span>
       </motion.h2>
 
       <motion.div
         variants={fadeInUp}
-        className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-8 backdrop-blur"
+        className="group mt-8 rounded-2xl border border-white/10 bg-white/5 p-8 backdrop-blur transition-all duration-300 hover:border-cyan-500/30 hover:shadow-[0_0_30px_rgba(0,240,255,0.1)]"
       >
         <motion.p
           variants={fadeInUp}
@@ -53,11 +55,16 @@ export default function About() {
         </motion.p>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => (
+          {stats.map((stat, idx) => (
             <motion.div
               key={stat.label}
               variants={fadeInUp}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-5 text-center backdrop-blur"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: idx * 0.1 }}
+              whileHover={{ scale: 1.05, y: -5 }}
+              className="cursor-default rounded-xl border border-white/10 bg-white/5 px-4 py-5 text-center backdrop-blur transition-all duration-300 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(0,240,255,0.15)]"
             >
               <div className="text-3xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500">
                 {stat.value}

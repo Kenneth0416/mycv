@@ -73,8 +73,8 @@ export default function Experience() {
                     transition={{ duration: 0.6, ease: [0, 0, 0.58, 1] as const }}
                     viewport={{ once: true, amount: 0.3 }}
                     className={[
-                      "mt-6 w-full max-w-xl",
-                      "rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl",
+                      "mt-6 w-full max-w-xl group",
+                      "rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl transition-all duration-300 hover:border-cyan-500/30 hover:shadow-[0_0_30px_rgba(0,240,255,0.15)]",
                       isLeft
                         ? "md:col-start-1 md:justify-self-end md:mr-12"
                         : "md:col-start-2 md:justify-self-start md:ml-12",

@@ -91,7 +91,7 @@ export default function Skills() {
             <motion.div
               key={group.title}
               variants={cardVariants}
-              className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur"
+              className="group rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur transition-all duration-300 hover:border-cyan-500/30 hover:shadow-[0_0_30px_rgba(0,240,255,0.15)]"
             >
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-cyan-500/10 text-cyan-300">
@@ -103,13 +103,18 @@ export default function Skills() {
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                {group.skills.map((skill) => (
-                  <span
+                {group.skills.map((skill, idx) => (
+                  <motion.span
                     key={skill}
-                    className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-400 transition-shadow hover:shadow-[0_0_10px_rgba(0,240,255,0.3)]"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: idx * 0.05 }}
+                    whileHover={{ scale: 1.1 }}
+                    className="cursor-default rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-400 transition-all duration-300 hover:border-cyan-400/50 hover:bg-cyan-500/20 hover:shadow-[0_0_15px_rgba(0,240,255,0.4)]"
                   >
                     {skill}
-                  </span>
+                  </motion.span>
                 ))}
               </div>
             </motion.div>

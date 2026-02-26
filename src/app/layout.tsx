@@ -28,6 +28,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} bg-[#050510] text-white antialiased`}
       >
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute -top-1/2 -left-1/4 h-[800px] w-[800px] rounded-full bg-cyan-500/5 blur-[120px]" />
+          <div className="absolute -bottom-1/2 -right-1/4 h-[800px] w-[800px] rounded-full bg-purple-500/5 blur-[120px]" />
+          <div className="absolute top-1/3 right-1/4 h-[400px] w-[400px] rounded-full bg-cyan-400/3 blur-[80px]" />
+        </div>
         {children}
       </body>
     </html>

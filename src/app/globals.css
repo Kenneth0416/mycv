@@ -89,6 +89,10 @@
   color: transparent;
 }
 
+.animate-gradient {
+  animation: gradient-shift 3s ease infinite;
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: #1f1f3a #0a0a1a;

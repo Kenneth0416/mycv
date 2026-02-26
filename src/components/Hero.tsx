@@ -200,16 +200,34 @@ export default function Hero() {
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1 }}
-            className="mt-5 text-4xl font-semibold tracking-tight sm:text-6xl lg:text-7xl"
-            style={{
-              backgroundImage: "linear-gradient(90deg, #00f0ff, #a855f7)",
+            className="relative mt-5 text-4xl font-semibold tracking-tight sm:text-6xl lg:text-7xl"
+          >
+            <span className="relative z-10" style={{
+              backgroundImage: "linear-gradient(90deg, #00f0ff, #a855f7, #00f0ff)",
+              backgroundSize: "200% auto",
               WebkitBackgroundClip: "text",
               backgroundClip: "text",
               WebkitTextFillColor: "transparent",
               color: "transparent",
-            }}
-          >
-            Kenneth Kwok
+            }}>
+              Kenneth Kwok
+            </span>
+            <motion.span
+              className="absolute inset-0 blur-3xl"
+              style={{
+                background: "linear-gradient(90deg, rgba(0,240,255,0.4), rgba(168,85,247,0.4))",
+                filter: "blur(40px)",
+              }}
+              animate={{
+                opacity: [0.5, 0.8, 0.5],
+                scale: [1, 1.1, 1],
+              }}
+              transition={{
+                duration: 3,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            />
           </motion.h1>
 
           <motion.p
@@ -250,9 +268,10 @@ export default function Hero() {
               href="#projects"
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.98 }}
-              className="rounded-full border border-cyan-300/40 bg-cyan-400/10 px-6 py-3 text-xs uppercase tracking-[0.3em] text-cyan-100 transition-colors hover:bg-cyan-400/20"
+              className="group relative rounded-full border border-cyan-300/40 bg-cyan-400/10 px-6 py-3 text-xs uppercase tracking-[0.3em] text-cyan-100 transition-colors hover:bg-cyan-400/20"
             >
-              View Projects
+              <span className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-400/20 to-purple-500/20 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+              <span className="relative z-10">View Projects</span>
             </motion.a>
             <motion.a
               href="https://github.com/Kenneth0416"
@@ -260,10 +279,11 @@ export default function Hero() {
               rel="noreferrer"
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.98 }}
-              className="flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-3 text-xs uppercase tracking-[0.3em] text-white/80 transition-colors hover:bg-white/10"
+              className="group relative flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-3 text-xs uppercase tracking-[0.3em] text-white/80 transition-colors hover:bg-white/10"
             >
-              <FaGithub className="h-4 w-4" />
-              GitHub
+              <span className="absolute inset-0 rounded-full bg-gradient-to-r from-white/10 to-cyan-400/10 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+              <FaGithub className="relative z-10 h-4 w-4" />
+              <span className="relative z-10">GitHub</span>
             </motion.a>
           </motion.div>
         </div>
