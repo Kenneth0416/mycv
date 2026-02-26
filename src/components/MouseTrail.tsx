@@ -8,15 +8,14 @@ type Particle = {
   vx: number;
   vy: number;
   life: number;
-  maxLife: number;
   size: number;
-  color: string;
+  hue: number;
 };
 
 export default function MouseTrail() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
-  const mouseRef = useRef({ x: -1000, y: -1000 });
+  const mouseRef = useRef({ x: -1000, y: -1000, prevX: -1000, prevY: -1000 });
   const animationRef = useRef<number>(0);
 
   useEffect(() => {
@@ -26,74 +25,87 @@ export default function MouseTrail() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const colors = ["#00f0ff", "#a855f7", "#ffffff", "#00ffaa"];
-
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
     };
 
     const createParticle = (x: number, y: number): Particle => {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = Math.random() * 2 + 0.5;
       return {
         x,
         y,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
+        vx: (Math.random() - 0.5) * 1.5,
+        vy: (Math.random() - 0.5) * 1.5 - 0.5,
         life: 1,
-        maxLife: Math.random() * 0.5 + 0.5,
-        size: Math.random() * 3 + 1,
-        color: colors[Math.floor(Math.random() * colors.length)],
+        size: Math.random() * 4 + 2,
+        hue: 180 + Math.random() * 60, // cyan to purple range
       };
     };
 
     const animate = () => {
-      ctx.fillStyle = "rgba(5, 5, 7, 0.1)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Clear completely for clean look
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Add new particles at mouse position
-      if (mouseRef.current.x > 0) {
-        for (let i = 0; i < 3; i++) {
-          particlesRef.current.push(
-            createParticle(mouseRef.current.x, mouseRef.current.y)
-          );
+      // Add particles along mouse path
+      const { x, y, prevX, prevY } = mouseRef.current;
+      if (x > 0 && prevX > 0) {
+        const dist = Math.hypot(x - prevX, y - prevY);
+        const particlesToAdd = Math.min(Math.floor(dist / 3), 5);
+        for (let i = 0; i < particlesToAdd; i++) {
+          const t = i / particlesToAdd;
+          const px = prevX + (x - prevX) * t;
+          const py = prevY + (y - prevY) * t;
+          particlesRef.current.push(createParticle(px, py));
         }
       }
+
+      mouseRef.current.prevX = x;
+      mouseRef.current.prevY = y;
 
       // Update and draw particles
       particlesRef.current = particlesRef.current.filter((p) => {
         p.x += p.vx;
         p.y += p.vy;
-        p.life -= 0.02;
-        p.size *= 0.98;
+        p.life -= 0.025;
+        p.size *= 0.96;
 
-        if (p.life <= 0) return false;
+        if (p.life <= 0 || p.size < 0.5) return false;
 
-        const gradient = ctx.createRadialGradient(
-          p.x, p.y, 0,
-          p.x, p.y, p.size * 2
-        );
-        gradient.addColorStop(0, p.color + Math.floor(p.life * 255).toString(16).padStart(2, "0"));
-        gradient.addColorStop(1, "transparent");
+        const alpha = p.life * 0.8;
 
+        // Glow effect
         ctx.beginPath();
-        ctx.fillStyle = gradient;
         ctx.arc(p.x, p.y, p.size * 2, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${p.hue}, 100%, 70%, ${alpha * 0.3})`;
+        ctx.fill();
+
+        // Core
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${p.hue}, 100%, 80%, ${alpha})`;
         ctx.fill();
 
         return true;
       });
 
+      // Limit particle count
+      if (particlesRef.current.length > 100) {
+        particlesRef.current = particlesRef.current.slice(-100);
+      }
+
       animationRef.current = window.requestAnimationFrame(animate);
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      mouseRef.current = { x: e.clientX, y: e.clientY };
+      mouseRef.current = {
+        ...mouseRef.current,
+        x: e.clientX,
+        y: e.clientY,
+      };
     };
 
     const handleMouseLeave = () => {
-      mouseRef.current = { x: -1000, y: -1000 };
+      mouseRef.current = { x: -1000, y: -1000, prevX: -1000, prevY: -1000 };
     };
 
     resizeCanvas();
@@ -114,7 +126,6 @@ export default function MouseTrail() {
     <canvas
       ref={canvasRef}
       className="pointer-events-none fixed inset-0 z-[9999]"
-      style={{ opacity: 0.8 }}
     />
   );
 }
