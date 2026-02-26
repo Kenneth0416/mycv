@@ -1,4 +1,5 @@
 import About from "@/components/About";
+import ChatBot from "@/components/ChatBot";
 import Contact from "@/components/Contact";
 import Education from "@/components/Education";
 import Experience from "@/components/Experience";
@@ -18,6 +19,7 @@ export default function Home() {
       <Experience />
       <Education />
       <Contact />
+      <ChatBot />
     </main>
   );
 }
