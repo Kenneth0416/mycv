@@ -74,27 +74,27 @@ export default function Experience() {
                     viewport={{ once: true, amount: 0.3 }}
                     className={[
                       "mt-6 w-full max-w-xl",
-                      "rounded-2xl border border-white/60 bg-white/70 p-6 backdrop-blur-xl shadow-[0_20px_40px_rgba(8,145,178,0.2)]",
+                      "rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl",
                       isLeft
                         ? "md:col-start-1 md:justify-self-end md:mr-12"
                         : "md:col-start-2 md:justify-self-start md:ml-12",
                     ].join(" ")}
                   >
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <h3 className="text-xl font-semibold text-slate-900">
+                      <h3 className="text-xl font-semibold text-white">
                         {experience.company}
                       </h3>
-                      <span className="text-sm font-medium text-slate-500">
+                      <span className="text-sm font-medium text-gray-400">
                         {experience.dates}
                       </span>
                     </div>
-                    <p className="mt-2 text-sm font-semibold text-cyan-700">
+                    <p className="mt-2 text-sm font-semibold text-cyan-400">
                       {experience.role}
                     </p>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <p className="mt-1 text-sm text-gray-400">
                       {experience.subtitle}
                     </p>
-                    <ul className="mt-4 space-y-2 text-sm text-slate-700">
+                    <ul className="mt-4 space-y-2 text-sm text-gray-300">
                       {experience.points.map((point) => (
                         <li key={point} className="flex items-start gap-3">
                           <span className="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-cyan-500" />
@@ -107,7 +107,7 @@ export default function Experience() {
                         {experience.tags.map((tag) => (
                           <span
                             key={tag}
-                            className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-700"
+                            className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-400"
                           >
                             {tag}
                           </span>
