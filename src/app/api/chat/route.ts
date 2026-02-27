@@ -2,21 +2,6 @@ import { NextRequest } from "next/server";
 
 const SYSTEM_PROMPT = `You are Kenneth's AI assistant on his portfolio website. You help visitors learn about Kenneth's skills and experience.
 
-You have access to the following tools:
-1. web_search - Search the web for information (especially GitHub repos)
-2. scroll_to - Scroll to a section on the page
-
-When asked about GitHub repos or projects, use web_search to get real-time information.
-
-Respond in a conversational way. When you need to use a tool, output it in this format:
-[TOOL:tool_name]{"param": "value"}[/TOOL]
-
-For example:
-[TOOL:web_search]{"query": "Kenneth0416/MathPlatform GitHub"}[/TOOL]
-[TOOL:scroll_to]{"section": "projects"}[/TOOL]
-
-After using a tool, you'll receive the result and can continue your response.
-
 Kenneth's Profile:
 - AI Application Engineer specializing in LLM Integration, Agentic Workflows, Context Engineering
 - Built MCP-based AI math platform with 17 tools, 95% accuracy
@@ -29,73 +14,123 @@ Kenneth's Profile:
 - Location: Hong Kong, China
 - GitHub: github.com/Kenneth0416
 
-Be concise, friendly, and helpful.`;
+Use web_search to find real-time information when needed. Be concise, friendly, and helpful.`;
 
-async function webSearch(query: string): Promise<string> {
+// Tool definitions for xAI native function calling
+const TOOLS = [
+  {
+    type: "function" as const,
+    function: {
+      name: "web_search",
+      description: "Search the web for real-time information, especially useful for finding GitHub repositories, news, or any current information.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "The search query, e.g., 'Kenneth0416 GitHub repos' or 'latest AI news'"
+          }
+        },
+        required: ["query"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "scroll_to",
+      description: "Scroll the page to a specific section. Use this when the user wants to navigate to a section.",
+      parameters: {
+        type: "object",
+        properties: {
+          section: {
+            type: "string",
+            enum: ["about", "skills", "projects", "experience", "education", "contact"],
+            description: "The section to scroll to"
+          }
+        },
+        required: ["section"]
+      }
+    }
+  }
+];
+
+// Execute client-side tools (scroll_to is handled by frontend)
+function executeClientTool(name: string, args: Record<string, any>): { result: any; clientAction?: any } {
+  switch (name) {
+    case "scroll_to":
+      return {
+        result: { success: true, section: args.section },
+        clientAction: { type: "scroll", section: args.section }
+      };
+    default:
+      return { result: { error: "Unknown tool" } };
+  }
+}
+
+// Web search using GitHub API
+async function webSearch(query: string): Promise<any> {
   try {
-    // Use GitHub API for repo searches
-    if (query.toLowerCase().includes("github") || query.includes("Kenneth0416")) {
-      const repoMatch = query.match(/github\.com\/([^\/]+\/[^\/\s]+)/i);
-      if (repoMatch) {
-        const repoPath = repoMatch[1];
-        const response = await fetch(`https://api.github.com/repos/${repoPath}`, {
+    // GitHub repo lookup
+    const repoMatch = query.match(/github\.com\/([^\/]+\/[^\/\s]+)/i);
+    if (repoMatch) {
+      const repoPath = repoMatch[1];
+      const response = await fetch(`https://api.github.com/repos/${repoPath}`, {
+        headers: {
+          "Accept": "application/vnd.github.v3+json",
+          "User-Agent": "Kenneth-Portfolio-Bot"
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          type: "github_repo",
+          name: data.full_name,
+          description: data.description,
+          stars: data.stargazers_count,
+          forks: data.forks_count,
+          language: data.language,
+          topics: data.topics,
+          url: data.html_url,
+          lastUpdated: data.updated_at
+        };
+      }
+    }
+
+    // Search Kenneth's repos
+    if (query.toLowerCase().includes("github") || query.toLowerCase().includes("kenneth")) {
+      const searchTerm = query.replace(/github|kenneth|repos?|repositories?/gi, "").trim();
+      const response = await fetch(
+        `https://api.github.com/search/repositories?q=user:Kenneth0416+${encodeURIComponent(searchTerm)}&sort=updated`,
+        {
           headers: {
             "Accept": "application/vnd.github.v3+json",
             "User-Agent": "Kenneth-Portfolio-Bot"
           }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          return JSON.stringify({
-            type: "github_repo",
-            name: data.full_name,
-            description: data.description,
-            stars: data.stargazers_count,
-            forks: data.forks_count,
-            language: data.language,
-            topics: data.topics,
-            url: data.html_url,
-            lastUpdated: data.updated_at
-          });
         }
-      }
-
-      // Search Kenneth's repos
-      const searchMatch = query.match(/Kenneth0416\/?(\w*)/i);
-      if (searchMatch) {
-        const searchTerm = searchMatch[1] || "";
-        const response = await fetch(
-          `https://api.github.com/search/repositories?q=user:Kenneth0416+${searchTerm}&sort=updated`,
-          {
-            headers: {
-              "Accept": "application/vnd.github.v3+json",
-              "User-Agent": "Kenneth-Portfolio-Bot"
-            }
-          }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          const repos = data.items.slice(0, 3).map((repo: any) => ({
-            name: repo.full_name,
-            description: repo.description,
-            stars: repo.stargazers_count,
-            language: repo.language,
-            url: repo.html_url
-          }));
-          return JSON.stringify({ type: "github_search", results: repos });
-        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        const repos = data.items.slice(0, 5).map((repo: any) => ({
+          name: repo.full_name,
+          description: repo.description,
+          stars: repo.stargazers_count,
+          language: repo.language,
+          url: repo.html_url
+        }));
+        return { type: "github_search", results: repos };
       }
     }
 
-    // Generic search fallback
-    return JSON.stringify({ type: "search_result", message: "Searched: " + query });
+    // Generic web search note
+    return { type: "search_note", message: `Searched for: ${query}` };
   } catch (error) {
-    return JSON.stringify({ type: "error", message: "Search failed" });
+    return { type: "error", message: "Search failed" };
   }
 }
 
 export async function POST(request: NextRequest) {
-  const { message, toolResult } = await request.json();
+  const { messages: inputMessages } = await request.json();
 
   const encoder = new TextEncoder();
   const stream = new TransformStream();
@@ -103,89 +138,150 @@ export async function POST(request: NextRequest) {
 
   (async () => {
     try {
-      // Build messages array
       const messages: any[] = [
         { role: "system", content: SYSTEM_PROMPT },
+        ...inputMessages
       ];
 
-      if (toolResult) {
-        // When we have tool results, add the context
-        messages.push({
-          role: "user",
-          content: message
+      // Agentic loop - continue until no more tool calls
+      let iterationCount = 0;
+      const maxIterations = 5;
+
+      while (iterationCount < maxIterations) {
+        iterationCount++;
+
+        // Call xAI API with tools
+        const response = await fetch("https://api.x.ai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${process.env.XAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "grok-3",
+            messages,
+            tools: TOOLS,
+            tool_choice: "auto",
+            temperature: 0.7,
+            max_tokens: 800,
+            stream: true,
+          }),
         });
-        messages.push({
-          role: "assistant",
-          content: `I searched for the information. Here are the results:`
-        });
-        messages.push({
-          role: "user",
-          content: `Based on these search results, please provide a helpful summary:\n${toolResult}`
-        });
-      } else {
-        messages.push({ role: "user", content: message });
-      }
 
-      const response = await fetch("https://api.x.ai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.XAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "grok-3",
-          messages,
-          temperature: 0.7,
-          max_tokens: 800,
-          stream: true,
-        }),
-      });
+        if (!response.ok) {
+          throw new Error(`Grok API error: ${response.status}`);
+        }
 
-      if (!response.ok) {
-        throw new Error(`Grok API error: ${response.status}`);
-      }
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("No reader");
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("No reader");
+        let buffer = "";
+        let fullContent = "";
+        let toolCalls: any[] = [];
+        let finishReason = "";
 
-      let buffer = "";
+        // Read streaming response
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+          const chunk = new TextDecoder().decode(value);
+          buffer += chunk;
 
-        const chunk = new TextDecoder().decode(value);
-        buffer += chunk;
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
 
-        // Process SSE events
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const data = line.slice(6);
+              if (data === "[DONE]") continue;
 
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
-            if (data === "[DONE]") {
-              await writer.write(encoder.encode("data: [DONE]\n\n"));
-              continue;
-            }
+              try {
+                const parsed = JSON.parse(data);
+                const delta = parsed.choices?.[0]?.delta;
+                finishReason = parsed.choices?.[0]?.finish_reason || finishReason;
 
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) {
-                await writer.write(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
+                // Handle content
+                if (delta?.content) {
+                  fullContent += delta.content;
+                  await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "content", content: delta.content })}\n\n`));
+                }
+
+                // Handle tool calls (streaming)
+                if (delta?.tool_calls) {
+                  for (const tc of delta.tool_calls) {
+                    const idx = tc.index;
+                    if (!toolCalls[idx]) {
+                      toolCalls[idx] = { id: tc.id, function: { name: "", arguments: "" } };
+                    }
+                    if (tc.id) toolCalls[idx].id = tc.id;
+                    if (tc.function?.name) toolCalls[idx].function.name = tc.function.name;
+                    if (tc.function?.arguments) toolCalls[idx].function.arguments += tc.function.arguments;
+                  }
+                }
+              } catch {
+                // Skip invalid JSON
               }
-            } catch {
-              // Skip invalid JSON
             }
           }
         }
+
+        // If we have tool calls, execute them and continue the loop
+        if (toolCalls.length > 0) {
+          // Send tool call info to client
+          await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "tool_calls_start", tools: toolCalls.map(tc => tc.function.name) })}\n\n`));
+
+          // Add assistant message with tool calls to history
+          messages.push({
+            role: "assistant",
+            content: fullContent || null,
+            tool_calls: toolCalls
+          });
+
+          // Execute each tool and add results
+          for (const toolCall of toolCalls) {
+            const toolName = toolCall.function.name;
+            const toolArgs = JSON.parse(toolCall.function.arguments);
+
+            let toolResult: any;
+            let clientAction: any = null;
+
+            // Send tool execution status
+            await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "tool_executing", name: toolName, args: toolArgs })}\n\n`));
+
+            if (toolName === "web_search") {
+              toolResult = await webSearch(toolArgs.query);
+            } else {
+              const execution = executeClientTool(toolName, toolArgs);
+              toolResult = execution.result;
+              clientAction = execution.clientAction;
+            }
+
+            // Send tool result to client
+            await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "tool_result", name: toolName, result: toolResult, clientAction })}\n\n`));
+
+            // Add tool result to messages
+            messages.push({
+              role: "tool",
+              tool_call_id: toolCall.id,
+              content: JSON.stringify(toolResult)
+            });
+          }
+
+          // Continue the loop to get the next response
+          continue;
+        }
+
+        // No tool calls - we're done
+        // If there was content but no tool calls, we've already streamed it
+        break;
       }
 
+      await writer.write(encoder.encode("data: [DONE]\n\n"));
       await writer.close();
     } catch (error) {
       console.error("Stream error:", error);
-      await writer.write(encoder.encode(`data: ${JSON.stringify({ error: "Connection failed" })}\n\n`));
+      await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "error", message: "Connection failed" })}\n\n`));
       await writer.close();
     }
   })();
@@ -197,28 +293,4 @@ export async function POST(request: NextRequest) {
       "Connection": "keep-alive",
     },
   });
-}
-
-// Tool execution endpoint
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const tool = searchParams.get("tool");
-  const params = searchParams.get("params");
-
-  if (tool === "web_search" && params) {
-    const { query } = JSON.parse(params);
-    const result = await webSearch(query);
-    return new Response(result, {
-      headers: { "Content-Type": "application/json" }
-    });
-  }
-
-  if (tool === "scroll_to" && params) {
-    const { section } = JSON.parse(params);
-    return new Response(JSON.stringify({ scrolled: true, section }), {
-      headers: { "Content-Type": "application/json" }
-    });
-  }
-
-  return new Response(JSON.stringify({ error: "Unknown tool" }), { status: 400 });
 }

@@ -17,8 +17,9 @@ import {
 } from "react-icons/fa";
 
 type ToolCall = {
+  id: string;
   name: string;
-  params: Record<string, string>;
+  args: Record<string, any>;
   status: "pending" | "running" | "done";
   result?: any;
 };
@@ -30,8 +31,12 @@ type Message = {
   isStreaming?: boolean;
 };
 
+type ClientAction = {
+  type: "scroll";
+  section: string;
+};
+
 const SECTION_MAP: Record<string, string> = {
-  hero: "hero",
   about: "about",
   skills: "skills",
   projects: "projects",
@@ -39,35 +44,6 @@ const SECTION_MAP: Record<string, string> = {
   education: "education",
   contact: "contact",
 };
-
-async function executeTool(tool: string, params: Record<string, string>): Promise<any> {
-  const url = `/api/chat?tool=${tool}&params=${encodeURIComponent(JSON.stringify(params))}`;
-  const response = await fetch(url);
-  return response.json();
-}
-
-// Parse tool calls and remove them from visible content
-function parseAndStripTools(content: string): { cleanContent: string; tools: ToolCall[] } {
-  const toolRegex = /\[TOOL:(\w+)\]([\s\S]*?)\[\/TOOL\]/g;
-  const tools: ToolCall[] = [];
-  let match;
-
-  while ((match = toolRegex.exec(content)) !== null) {
-    const toolName = match[1];
-    const paramsStr = match[2].trim();
-    try {
-      const params = JSON.parse(paramsStr);
-      tools.push({ name: toolName, params, status: "pending" });
-    } catch {
-      tools.push({ name: toolName, params: { raw: paramsStr }, status: "pending" });
-    }
-  }
-
-  // Remove tool calls from content
-  const cleanContent = content.replace(toolRegex, "").trim();
-
-  return { cleanContent, tools };
-}
 
 export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
@@ -81,6 +57,7 @@ export default function ChatBot() {
   const [isStreaming, setIsStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const conversationHistoryRef = useRef<{ role: string; content: string }[]>([]);
 
   const scrollToSection = useCallback((sectionId: string) => {
     const element = document.getElementById(SECTION_MAP[sectionId] || sectionId);
@@ -109,30 +86,45 @@ export default function ChatBot() {
 
     const userMessage = input.trim();
     setInput("");
+
+    // Add user message to UI
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsStreaming(true);
 
+    // Build conversation history for API
+    const newHistory = [...conversationHistoryRef.current, { role: "user", content: userMessage }];
+    conversationHistoryRef.current = newHistory;
+
     try {
-      // First call - let AI decide what to do
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage }),
+        body: JSON.stringify({ messages: newHistory }),
       });
 
       const reader = response.body?.getReader();
       if (!reader) throw new Error("No reader");
 
       const decoder = new TextDecoder();
-      let rawContent = "";
+      let buffer = "";
+      let currentContent = "";
+      let currentToolCalls: ToolCall[] = [];
 
-      // Read streaming response
+      // Add placeholder for assistant message
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "", isStreaming: true, toolCalls: [] },
+      ]);
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         const chunk = decoder.decode(value);
-        const lines = chunk.split("\n");
+        buffer += chunk;
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
 
         for (const line of lines) {
           if (line.startsWith("data: ")) {
@@ -140,135 +132,110 @@ export default function ChatBot() {
             if (data === "[DONE]") continue;
 
             try {
-              const parsed = JSON.parse(data);
-              if (parsed.content) {
-                rawContent += parsed.content;
-                // Strip tool calls from display while streaming
-                const { cleanContent } = parseAndStripTools(rawContent);
-                setMessages((prev) => {
-                  const newMessages = [...prev];
-                  const lastIdx = newMessages.length - 1;
-                  if (newMessages[lastIdx]?.role === "assistant") {
-                    newMessages[lastIdx] = {
-                      role: "assistant",
-                      content: cleanContent,
-                      isStreaming: true,
-                    };
-                  } else {
-                    newMessages.push({
-                      role: "assistant",
-                      content: cleanContent,
-                      isStreaming: true,
-                    });
+              const event = JSON.parse(data);
+
+              switch (event.type) {
+                case "content":
+                  // Stream text content
+                  currentContent += event.content;
+                  setMessages((prev) => {
+                    const newMessages = [...prev];
+                    const lastIdx = newMessages.length - 1;
+                    if (newMessages[lastIdx]?.role === "assistant") {
+                      newMessages[lastIdx] = {
+                        ...newMessages[lastIdx],
+                        content: currentContent,
+                        isStreaming: true,
+                      };
+                    }
+                    return newMessages;
+                  });
+                  break;
+
+                case "tool_calls_start":
+                  // Tool calls are about to be executed
+                  const newToolCalls: ToolCall[] = event.tools.map((name: string, i: number) => ({
+                    id: `tc_${i}`,
+                    name,
+                    args: {},
+                    status: "pending" as const,
+                  }));
+                  currentToolCalls = newToolCalls;
+                  setMessages((prev) => {
+                    const newMessages = [...prev];
+                    const lastIdx = newMessages.length - 1;
+                    if (newMessages[lastIdx]?.role === "assistant") {
+                      newMessages[lastIdx] = {
+                        ...newMessages[lastIdx],
+                        toolCalls: newToolCalls,
+                      };
+                    }
+                    return newMessages;
+                  });
+                  break;
+
+                case "tool_executing":
+                  // Update tool status to running
+                  setMessages((prev) => {
+                    const newMessages = [...prev];
+                    const lastIdx = newMessages.length - 1;
+                    const msg = newMessages[lastIdx];
+                    if (msg?.role === "assistant" && msg.toolCalls) {
+                      msg.toolCalls = msg.toolCalls.map((tc) =>
+                        tc.name === event.name
+                          ? { ...tc, args: event.args, status: "running" as const }
+                          : tc
+                      );
+                    }
+                    return newMessages;
+                  });
+                  break;
+
+                case "tool_result":
+                  // Tool execution completed
+                  setMessages((prev) => {
+                    const newMessages = [...prev];
+                    const lastIdx = newMessages.length - 1;
+                    const msg = newMessages[lastIdx];
+                    if (msg?.role === "assistant" && msg.toolCalls) {
+                      msg.toolCalls = msg.toolCalls.map((tc) =>
+                        tc.name === event.name
+                          ? { ...tc, status: "done" as const, result: event.result }
+                          : tc
+                      );
+                    }
+                    return newMessages;
+                  });
+
+                  // Handle client actions (scroll, etc.)
+                  if (event.clientAction?.type === "scroll") {
+                    scrollToSection(event.clientAction.section);
                   }
-                  return newMessages;
-                });
+                  break;
+
+                case "error":
+                  setMessages((prev) => {
+                    const newMessages = [...prev];
+                    const lastIdx = newMessages.length - 1;
+                    if (newMessages[lastIdx]?.role === "assistant") {
+                      newMessages[lastIdx] = {
+                        ...newMessages[lastIdx],
+                        content: "Sorry, I'm having trouble connecting. Please try again!",
+                        isStreaming: false,
+                      };
+                    }
+                    return newMessages;
+                  });
+                  break;
               }
-            } catch {}
-          }
-        }
-      }
-
-      // Parse tools from complete response
-      const { cleanContent, tools } = parseAndStripTools(rawContent);
-
-      if (tools.length > 0) {
-        // Show tool calls in current message
-        setMessages((prev) => {
-          const newMessages = [...prev];
-          const lastIdx = newMessages.length - 1;
-          if (newMessages[lastIdx]?.role === "assistant") {
-            newMessages[lastIdx] = {
-              role: "assistant",
-              content: cleanContent,
-              toolCalls: tools.map((t) => ({ ...t, status: "running" as const })),
-              isStreaming: false,
-            };
-          }
-          return newMessages;
-        });
-
-        // Execute each tool
-        const toolResults: string[] = [];
-        for (let i = 0; i < tools.length; i++) {
-          const tool = tools[i];
-          const result = await executeTool(tool.name, tool.params);
-          toolResults.push(JSON.stringify(result));
-
-          // Update tool status to done
-          setMessages((prev) => {
-            const newMessages = [...prev];
-            const lastIdx = newMessages.length - 1;
-            const msg = newMessages[lastIdx] as Message;
-            if (msg?.toolCalls) {
-              msg.toolCalls[i] = { ...msg.toolCalls[i], status: "done", result };
-            }
-            return newMessages;
-          });
-
-          // Handle scroll
-          if (tool.name === "scroll_to" && tool.params.section) {
-            scrollToSection(tool.params.section);
-          }
-        }
-
-        // Add a NEW message for the final response
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: "", isStreaming: true },
-        ]);
-
-        const finalResponse = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: userMessage,
-            toolResult: toolResults.join("\n"),
-          }),
-        });
-
-        const finalReader = finalResponse.body?.getReader();
-        if (finalReader) {
-          let finalContent = "";
-          const finalMsgIdx = messages.length + 1; // Index of the new message
-
-          while (true) {
-            const { done, value } = await finalReader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value);
-            const lines = chunk.split("\n");
-
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                const data = line.slice(6);
-                if (data === "[DONE]") continue;
-
-                try {
-                  const parsed = JSON.parse(data);
-                  if (parsed.content) {
-                    finalContent += parsed.content;
-                    const { cleanContent: displayContent } = parseAndStripTools(finalContent);
-                    setMessages((prev) => {
-                      const newMessages = [...prev];
-                      if (newMessages[finalMsgIdx]?.role === "assistant") {
-                        newMessages[finalMsgIdx] = {
-                          role: "assistant",
-                          content: displayContent,
-                          isStreaming: false,
-                        };
-                      }
-                      return newMessages;
-                    });
-                  }
-                } catch {}
-              }
+            } catch {
+              // Skip invalid JSON
             }
           }
         }
       }
 
-      // Final update - ensure isStreaming is false
+      // Final update - mark as not streaming
       setMessages((prev) => {
         const newMessages = [...prev];
         const lastIdx = newMessages.length - 1;
@@ -281,19 +248,18 @@ export default function ChatBot() {
         return newMessages;
       });
 
+      // Update conversation history with assistant response
+      if (currentContent) {
+        conversationHistoryRef.current.push({ role: "assistant", content: currentContent });
+      }
+
     } catch (error) {
       setMessages((prev) => {
         const newMessages = [...prev];
         const lastIdx = newMessages.length - 1;
-        if (newMessages[lastIdx]?.role !== "assistant") {
-          newMessages.push({
-            role: "assistant",
-            content: "Sorry, I'm having trouble connecting. Please try again!",
-            isStreaming: false,
-          });
-        } else {
+        if (newMessages[lastIdx]?.role === "assistant") {
           newMessages[lastIdx] = {
-            role: "assistant",
+            ...newMessages[lastIdx],
             content: "Sorry, I'm having trouble connecting. Please try again!",
             isStreaming: false,
           };
@@ -324,13 +290,14 @@ export default function ChatBot() {
           )}
           <span className="font-mono text-white/70">
             {tool.name}
-            {tool.params.query && `("${tool.params.query}")`}
-            {tool.params.section && `("${tool.params.section}")`}
+            {tool.args?.query && `("${tool.args.query}")`}
+            {tool.args?.section && `("${tool.args.section}")`}
           </span>
           {isRunning && <FaSpinner className="ml-auto animate-spin text-cyan-400" />}
           {isDone && <span className="ml-auto text-green-400">✓</span>}
         </div>
 
+        {/* GitHub Repo Result */}
         {tool.result && tool.name === "web_search" && tool.result.type === "github_repo" && (
           <div className="mt-2 rounded bg-black/30 p-2">
             <div className="flex items-center gap-2">
@@ -363,6 +330,7 @@ export default function ChatBot() {
           </div>
         )}
 
+        {/* GitHub Search Results */}
         {tool.result && tool.name === "web_search" && tool.result.type === "github_search" && (
           <div className="mt-2 space-y-1">
             {tool.result.results?.map((repo: any, i: number) => (
@@ -426,7 +394,7 @@ export default function ChatBot() {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-white">AI Assistant</h3>
-                  <p className="text-xs text-white/50">Powered by Grok • Agentic</p>
+                  <p className="text-xs text-white/50">Powered by Grok • Native Tools</p>
                 </div>
               </div>
               <button
