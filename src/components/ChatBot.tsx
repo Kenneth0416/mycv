@@ -173,7 +173,7 @@ export default function ChatBot() {
       const { cleanContent, tools } = parseAndStripTools(rawContent);
 
       if (tools.length > 0) {
-        // Show tool calls
+        // Show tool calls in current message
         setMessages((prev) => {
           const newMessages = [...prev];
           const lastIdx = newMessages.length - 1;
@@ -212,7 +212,12 @@ export default function ChatBot() {
           }
         }
 
-        // Get final response with tool results
+        // Add a NEW message for the final response
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "", isStreaming: true },
+        ]);
+
         const finalResponse = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -224,22 +229,8 @@ export default function ChatBot() {
 
         const finalReader = finalResponse.body?.getReader();
         if (finalReader) {
-          let finalContent = cleanContent;
-
-          // Show streaming indicator while waiting
-          setMessages((prev) => {
-            const newMessages = [...prev];
-            const lastIdx = newMessages.length - 1;
-            if (newMessages[lastIdx]?.role === "assistant") {
-              newMessages[lastIdx] = {
-                role: "assistant",
-                content: finalContent,
-                toolCalls: tools.map((t) => ({ ...t, status: "done" as const, result: t.result })),
-                isStreaming: true,
-              };
-            }
-            return newMessages;
-          });
+          let finalContent = "";
+          const finalMsgIdx = messages.length + 1; // Index of the new message
 
           while (true) {
             const { done, value } = await finalReader.read();
@@ -257,16 +248,13 @@ export default function ChatBot() {
                   const parsed = JSON.parse(data);
                   if (parsed.content) {
                     finalContent += parsed.content;
-                    // Strip any tool calls from final response too
                     const { cleanContent: displayContent } = parseAndStripTools(finalContent);
                     setMessages((prev) => {
                       const newMessages = [...prev];
-                      const lastIdx = newMessages.length - 1;
-                      if (newMessages[lastIdx]?.role === "assistant") {
-                        newMessages[lastIdx] = {
+                      if (newMessages[finalMsgIdx]?.role === "assistant") {
+                        newMessages[finalMsgIdx] = {
                           role: "assistant",
                           content: displayContent,
-                          toolCalls: tools.map((t) => ({ ...t, status: "done" as const, result: t.result })),
                           isStreaming: false,
                         };
                       }
