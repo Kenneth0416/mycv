@@ -46,6 +46,29 @@ async function executeTool(tool: string, params: Record<string, string>): Promis
   return response.json();
 }
 
+// Parse tool calls and remove them from visible content
+function parseAndStripTools(content: string): { cleanContent: string; tools: ToolCall[] } {
+  const toolRegex = /\[TOOL:(\w+)\]([\s\S]*?)\[\/TOOL\]/g;
+  const tools: ToolCall[] = [];
+  let match;
+
+  while ((match = toolRegex.exec(content)) !== null) {
+    const toolName = match[1];
+    const paramsStr = match[2].trim();
+    try {
+      const params = JSON.parse(paramsStr);
+      tools.push({ name: toolName, params, status: "pending" });
+    } catch {
+      tools.push({ name: toolName, params: { raw: paramsStr }, status: "pending" });
+    }
+  }
+
+  // Remove tool calls from content
+  const cleanContent = content.replace(toolRegex, "").trim();
+
+  return { cleanContent, tools };
+}
+
 export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -80,27 +103,6 @@ export default function ChatBot() {
     }
   }, [isOpen]);
 
-  const parseToolCalls = (content: string): { text: string; tools: ToolCall[] } => {
-    const toolRegex = /\[TOOL:(\w+)\]([\s\S]*?)\[\/TOOL\]/g;
-    const tools: ToolCall[] = [];
-    let match;
-    let text = content;
-
-    while ((match = toolRegex.exec(content)) !== null) {
-      const toolName = match[1];
-      const paramsStr = match[2].trim();
-      try {
-        const params = JSON.parse(paramsStr);
-        tools.push({ name: toolName, params, status: "pending" });
-      } catch {
-        tools.push({ name: toolName, params: { raw: paramsStr }, status: "pending" });
-      }
-      text = text.replace(match[0], "");
-    }
-
-    return { text: text.trim(), tools };
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isStreaming) return;
@@ -110,14 +112,8 @@ export default function ChatBot() {
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsStreaming(true);
 
-    // Add placeholder for streaming response
-    const assistantIndex = messages.length + 1;
-    setMessages((prev) => [
-      ...prev,
-      { role: "assistant", content: "", isStreaming: true },
-    ]);
-
     try {
+      // First call - let AI decide what to do
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -128,8 +124,9 @@ export default function ChatBot() {
       if (!reader) throw new Error("No reader");
 
       const decoder = new TextDecoder();
-      let fullContent = "";
+      let rawContent = "";
 
+      // Read streaming response
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -145,147 +142,174 @@ export default function ChatBot() {
             try {
               const parsed = JSON.parse(data);
               if (parsed.content) {
-                fullContent += parsed.content;
+                rawContent += parsed.content;
+                // Strip tool calls from display while streaming
+                const { cleanContent } = parseAndStripTools(rawContent);
                 setMessages((prev) => {
                   const newMessages = [...prev];
-                  newMessages[assistantIndex] = {
-                    role: "assistant",
-                    content: fullContent,
-                    isStreaming: true,
-                  };
+                  const lastIdx = newMessages.length - 1;
+                  if (newMessages[lastIdx]?.role === "assistant") {
+                    newMessages[lastIdx] = {
+                      role: "assistant",
+                      content: cleanContent,
+                      isStreaming: true,
+                    };
+                  } else {
+                    newMessages.push({
+                      role: "assistant",
+                      content: cleanContent,
+                      isStreaming: true,
+                    });
+                  }
                   return newMessages;
                 });
               }
-            } catch {
-              // Skip invalid JSON
-            }
+            } catch {}
           }
         }
       }
 
-      // Parse tool calls from the final content
-      const { text, tools } = parseToolCalls(fullContent);
+      // Parse tools from complete response
+      const { cleanContent, tools } = parseAndStripTools(rawContent);
 
       if (tools.length > 0) {
-        // Show tool calls being executed
+        // Show tool calls
         setMessages((prev) => {
           const newMessages = [...prev];
-          newMessages[assistantIndex] = {
-            role: "assistant",
-            content: text,
-            toolCalls: tools.map((t) => ({ ...t, status: "running" as const })),
-            isStreaming: false,
-          };
+          const lastIdx = newMessages.length - 1;
+          if (newMessages[lastIdx]?.role === "assistant") {
+            newMessages[lastIdx] = {
+              role: "assistant",
+              content: cleanContent,
+              toolCalls: tools.map((t) => ({ ...t, status: "running" as const })),
+              isStreaming: false,
+            };
+          }
           return newMessages;
         });
 
-        // Execute tools
+        // Execute each tool
         const toolResults: string[] = [];
         for (let i = 0; i < tools.length; i++) {
           const tool = tools[i];
           const result = await executeTool(tool.name, tool.params);
           toolResults.push(JSON.stringify(result));
 
-          // Update tool status
+          // Update tool status to done
           setMessages((prev) => {
             const newMessages = [...prev];
-            const msg = newMessages[assistantIndex] as Message;
-            if (msg.toolCalls) {
+            const lastIdx = newMessages.length - 1;
+            const msg = newMessages[lastIdx] as Message;
+            if (msg?.toolCalls) {
               msg.toolCalls[i] = { ...msg.toolCalls[i], status: "done", result };
             }
             return newMessages;
           });
 
-          // Handle scroll_to
+          // Handle scroll
           if (tool.name === "scroll_to" && tool.params.section) {
             scrollToSection(tool.params.section);
           }
         }
 
-        // Always continue conversation with tool results to get a summary
-        if (toolResults.length > 0) {
-          const finalResponse = await fetch("/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              message: userMessage,
-              toolResult: toolResults.join("\n"),
-            }),
-          });
+        // Get final response with tool results
+        const finalResponse = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: userMessage,
+            toolResult: toolResults.join("\n"),
+          }),
+        });
 
-          const finalReader = finalResponse.body?.getReader();
-          if (finalReader) {
-            let finalContent = text;
-            while (true) {
-              const { done, value } = await finalReader.read();
-              if (done) break;
-              const chunk = decoder.decode(value);
-              const lines = chunk.split("\n");
-              for (const line of lines) {
-                if (line.startsWith("data: ")) {
-                  const data = line.slice(6);
-                  if (data === "[DONE]") continue;
-                  try {
-                    const parsed = JSON.parse(data);
-                    if (parsed.content) {
-                      finalContent += parsed.content;
-                      setMessages((prev) => {
-                        const newMessages = [...prev];
-                        newMessages[assistantIndex] = {
-                          role: "assistant",
-                          content: finalContent,
-                          toolCalls: tools.map((t) => ({
-                            ...t,
-                            status: "done" as const,
-                            result: t.result,
-                          })),
-                          isStreaming: false,
-                        };
-                        return newMessages;
-                      });
-                    }
-                  } catch {}
-                }
-              }
-            }
-            // Update final content
-            setMessages((prev) => {
-              const newMessages = [...prev];
-              newMessages[assistantIndex] = {
+        const finalReader = finalResponse.body?.getReader();
+        if (finalReader) {
+          let finalContent = cleanContent;
+
+          // Show streaming indicator while waiting
+          setMessages((prev) => {
+            const newMessages = [...prev];
+            const lastIdx = newMessages.length - 1;
+            if (newMessages[lastIdx]?.role === "assistant") {
+              newMessages[lastIdx] = {
                 role: "assistant",
                 content: finalContent,
-                toolCalls: tools.map((t) => ({
-                  ...t,
-                  status: "done" as const,
-                  result: t.result,
-                })),
-                isStreaming: false,
+                toolCalls: tools.map((t) => ({ ...t, status: "done" as const, result: t.result })),
+                isStreaming: true,
               };
-              return newMessages;
-            });
+            }
+            return newMessages;
+          });
+
+          while (true) {
+            const { done, value } = await finalReader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value);
+            const lines = chunk.split("\n");
+
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                const data = line.slice(6);
+                if (data === "[DONE]") continue;
+
+                try {
+                  const parsed = JSON.parse(data);
+                  if (parsed.content) {
+                    finalContent += parsed.content;
+                    // Strip any tool calls from final response too
+                    const { cleanContent: displayContent } = parseAndStripTools(finalContent);
+                    setMessages((prev) => {
+                      const newMessages = [...prev];
+                      const lastIdx = newMessages.length - 1;
+                      if (newMessages[lastIdx]?.role === "assistant") {
+                        newMessages[lastIdx] = {
+                          role: "assistant",
+                          content: displayContent,
+                          toolCalls: tools.map((t) => ({ ...t, status: "done" as const, result: t.result })),
+                          isStreaming: false,
+                        };
+                      }
+                      return newMessages;
+                    });
+                  }
+                } catch {}
+              }
+            }
           }
         }
       }
 
-      // Final update
+      // Final update - ensure isStreaming is false
       setMessages((prev) => {
         const newMessages = [...prev];
-        newMessages[assistantIndex] = {
-          role: "assistant",
-          content: text || fullContent,
-          toolCalls: tools.length > 0 ? tools : undefined,
-          isStreaming: false,
-        };
+        const lastIdx = newMessages.length - 1;
+        if (newMessages[lastIdx]?.role === "assistant") {
+          newMessages[lastIdx] = {
+            ...newMessages[lastIdx],
+            isStreaming: false,
+          };
+        }
         return newMessages;
       });
+
     } catch (error) {
       setMessages((prev) => {
         const newMessages = [...prev];
-        newMessages[assistantIndex] = {
-          role: "assistant",
-          content: "Sorry, I'm having trouble connecting. Please try again!",
-          isStreaming: false,
-        };
+        const lastIdx = newMessages.length - 1;
+        if (newMessages[lastIdx]?.role !== "assistant") {
+          newMessages.push({
+            role: "assistant",
+            content: "Sorry, I'm having trouble connecting. Please try again!",
+            isStreaming: false,
+          });
+        } else {
+          newMessages[lastIdx] = {
+            role: "assistant",
+            content: "Sorry, I'm having trouble connecting. Please try again!",
+            isStreaming: false,
+          };
+        }
         return newMessages;
       });
     } finally {
@@ -450,7 +474,11 @@ export default function ChatBot() {
                         <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-cyan-400" />
                       )}
                     </div>
-                    {msg.toolCalls && msg.toolCalls.map((tool, i) => renderToolCall(tool, i))}
+                    {msg.toolCalls && msg.toolCalls.length > 0 && (
+                      <div className="mt-1">
+                        {msg.toolCalls.map((tool, i) => renderToolCall(tool, i))}
+                      </div>
+                    )}
                   </div>
                   {msg.role === "user" && (
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/20">
