@@ -1,76 +1,78 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FaComments, FaTimes, FaPaperPlane, FaRobot, FaUser } from "react-icons/fa";
+import {
+  FaComments,
+  FaTimes,
+  FaPaperPlane,
+  FaRobot,
+  FaUser,
+  FaSearch,
+  FaArrowRight,
+  FaSpinner,
+  FaGithub,
+  FaStar,
+  FaCodeBranch,
+} from "react-icons/fa";
+
+type ToolCall = {
+  name: string;
+  params: Record<string, string>;
+  status: "pending" | "running" | "done";
+  result?: any;
+};
 
 type Message = {
   role: "user" | "assistant";
   content: string;
-  action?: {
-    type: "scroll";
-    target: string;
-  };
+  toolCalls?: ToolCall[];
+  isStreaming?: boolean;
 };
 
-const SYSTEM_PROMPT = `You are Kenneth's AI assistant on his portfolio website. You help visitors learn about Kenneth's skills and experience.
+const SECTION_MAP: Record<string, string> = {
+  hero: "hero",
+  about: "about",
+  skills: "skills",
+  projects: "projects",
+  experience: "experience",
+  education: "education",
+  contact: "contact",
+};
 
-IMPORTANT: You MUST respond in valid JSON format with this structure:
-{
-  "message": "Your response text here",
-  "scrollTo": "section-id or null"
+async function executeTool(tool: string, params: Record<string, string>): Promise<any> {
+  const url = `/api/chat?tool=${tool}&params=${encodeURIComponent(JSON.stringify(params))}`;
+  const response = await fetch(url);
+  return response.json();
 }
-
-Available sections to scroll to:
-- "hero" - Introduction
-- "about" - About Kenneth
-- "skills" - Technical Skills
-- "projects" - Featured Projects
-- "experience" - Work Experience
-- "education" - Education
-- "contact" - Contact Information
-
-Kenneth's Profile:
-- AI Application Engineer specializing in LLM Integration, Agentic Workflows, Context Engineering
-- Built MCP-based AI math platform with 17 tools, 95% accuracy
-- Created Prompt AI Helper iOS app (200+ downloads)
-- Built SteamPlatForm (Next.js 15, 184 components, 23 APIs)
-- Developed Crisis-Sim game platform for NTU Research
-- Skills: Python, TypeScript, MCP Protocol, LangChain, RAG, Agentic Workflows
-- Email: kennethkwok9196@gmail.com
-- Phone: +852 6117 1096
-- Location: Hong Kong, China
-- GitHub: github.com/Kenneth0416
-
-Be concise, friendly, and helpful. When someone asks about a specific topic, scroll to the relevant section.`;
 
 export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hi! I'm Kenneth's AI assistant. Ask me about his skills, projects, or experience!",
+      content: "Hi! I'm Kenneth's AI assistant. Ask me about his skills, projects, or GitHub repos!",
     },
   ]);
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const scrollToSection = (sectionId: string) => {
-    const element = document.getElementById(sectionId);
+  const scrollToSection = useCallback((sectionId: string) => {
+    const element = document.getElementById(SECTION_MAP[sectionId] || sectionId);
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-  };
+  }, []);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, scrollToBottom]);
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -78,14 +80,42 @@ export default function ChatBot() {
     }
   }, [isOpen]);
 
+  const parseToolCalls = (content: string): { text: string; tools: ToolCall[] } => {
+    const toolRegex = /\[TOOL:(\w+)\]([\s\S]*?)\[\/TOOL\]/g;
+    const tools: ToolCall[] = [];
+    let match;
+    let text = content;
+
+    while ((match = toolRegex.exec(content)) !== null) {
+      const toolName = match[1];
+      const paramsStr = match[2].trim();
+      try {
+        const params = JSON.parse(paramsStr);
+        tools.push({ name: toolName, params, status: "pending" });
+      } catch {
+        tools.push({ name: toolName, params: { raw: paramsStr }, status: "pending" });
+      }
+      text = text.replace(match[0], "");
+    }
+
+    return { text: text.trim(), tools };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isStreaming) return;
 
     const userMessage = input.trim();
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
-    setIsLoading(true);
+    setIsStreaming(true);
+
+    // Add placeholder for streaming response
+    const assistantIndex = messages.length + 1;
+    setMessages((prev) => [
+      ...prev,
+      { role: "assistant", content: "", isStreaming: true },
+    ]);
 
     try {
       const response = await fetch("/api/chat", {
@@ -94,27 +124,247 @@ export default function ChatBot() {
         body: JSON.stringify({ message: userMessage }),
       });
 
-      const data = await response.json();
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No reader");
 
-      if (data.scrollTo) {
-        scrollToSection(data.scrollTo);
+      const decoder = new TextDecoder();
+      let fullContent = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6);
+            if (data === "[DONE]") continue;
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.content) {
+                fullContent += parsed.content;
+                setMessages((prev) => {
+                  const newMessages = [...prev];
+                  newMessages[assistantIndex] = {
+                    role: "assistant",
+                    content: fullContent,
+                    isStreaming: true,
+                  };
+                  return newMessages;
+                });
+              }
+            } catch {
+              // Skip invalid JSON
+            }
+          }
+        }
       }
 
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: data.message },
-      ]);
+      // Parse tool calls from the final content
+      const { text, tools } = parseToolCalls(fullContent);
+
+      if (tools.length > 0) {
+        // Show tool calls being executed
+        setMessages((prev) => {
+          const newMessages = [...prev];
+          newMessages[assistantIndex] = {
+            role: "assistant",
+            content: text,
+            toolCalls: tools.map((t) => ({ ...t, status: "running" as const })),
+            isStreaming: false,
+          };
+          return newMessages;
+        });
+
+        // Execute tools
+        const toolResults: string[] = [];
+        for (let i = 0; i < tools.length; i++) {
+          const tool = tools[i];
+          const result = await executeTool(tool.name, tool.params);
+          toolResults.push(JSON.stringify(result));
+
+          // Update tool status
+          setMessages((prev) => {
+            const newMessages = [...prev];
+            const msg = newMessages[assistantIndex] as Message;
+            if (msg.toolCalls) {
+              msg.toolCalls[i] = { ...msg.toolCalls[i], status: "done", result };
+            }
+            return newMessages;
+          });
+
+          // Handle scroll_to
+          if (tool.name === "scroll_to" && tool.params.section) {
+            scrollToSection(tool.params.section);
+          }
+        }
+
+        // Continue conversation with tool results
+        if (toolResults.length > 0 && text.length === 0) {
+          // Need to get final response with tool results
+          const finalResponse = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              message: userMessage,
+              toolResult: toolResults.join("\n"),
+            }),
+          });
+
+          const finalReader = finalResponse.body?.getReader();
+          if (finalReader) {
+            let finalContent = "";
+            while (true) {
+              const { done, value } = await finalReader.read();
+              if (done) break;
+              const chunk = decoder.decode(value);
+              const lines = chunk.split("\n");
+              for (const line of lines) {
+                if (line.startsWith("data: ")) {
+                  const data = line.slice(6);
+                  if (data === "[DONE]") continue;
+                  try {
+                    const parsed = JSON.parse(data);
+                    if (parsed.content) {
+                      finalContent += parsed.content;
+                      setMessages((prev) => {
+                        const newMessages = [...prev];
+                        newMessages[assistantIndex] = {
+                          role: "assistant",
+                          content: finalContent,
+                          toolCalls: tools.map((t) => ({
+                            ...t,
+                            status: "done" as const,
+                            result: t.result,
+                          })),
+                          isStreaming: false,
+                        };
+                        return newMessages;
+                      });
+                    }
+                  } catch {}
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Final update
+      setMessages((prev) => {
+        const newMessages = [...prev];
+        newMessages[assistantIndex] = {
+          role: "assistant",
+          content: text || fullContent,
+          toolCalls: tools.length > 0 ? tools : undefined,
+          isStreaming: false,
+        };
+        return newMessages;
+      });
     } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
+      setMessages((prev) => {
+        const newMessages = [...prev];
+        newMessages[assistantIndex] = {
           role: "assistant",
           content: "Sorry, I'm having trouble connecting. Please try again!",
-        },
-      ]);
+          isStreaming: false,
+        };
+        return newMessages;
+      });
     } finally {
-      setIsLoading(false);
+      setIsStreaming(false);
     }
+  };
+
+  const renderToolCall = (tool: ToolCall, idx: number) => {
+    const isRunning = tool.status === "running";
+    const isDone = tool.status === "done";
+
+    return (
+      <div
+        key={idx}
+        className={`mt-2 rounded-lg border ${
+          isDone ? "border-green-500/30 bg-green-500/5" : "border-cyan-500/30 bg-cyan-500/5"
+        } p-2 text-xs`}
+      >
+        <div className="flex items-center gap-2">
+          {tool.name === "web_search" ? (
+            <FaSearch className={isRunning ? "animate-pulse text-cyan-400" : isDone ? "text-green-400" : "text-white/50"} />
+          ) : (
+            <FaArrowRight className={isRunning ? "animate-pulse text-cyan-400" : isDone ? "text-green-400" : "text-white/50"} />
+          )}
+          <span className="font-mono text-white/70">
+            {tool.name}
+            {tool.params.query && `("${tool.params.query}")`}
+            {tool.params.section && `("${tool.params.section}")`}
+          </span>
+          {isRunning && <FaSpinner className="ml-auto animate-spin text-cyan-400" />}
+          {isDone && <span className="ml-auto text-green-400">✓</span>}
+        </div>
+
+        {tool.result && tool.name === "web_search" && tool.result.type === "github_repo" && (
+          <div className="mt-2 rounded bg-black/30 p-2">
+            <div className="flex items-center gap-2">
+              <FaGithub className="text-white/70" />
+              <a
+                href={tool.result.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-cyan-400 hover:underline"
+              >
+                {tool.result.name}
+              </a>
+            </div>
+            {tool.result.description && (
+              <p className="mt-1 text-white/60">{tool.result.description}</p>
+            )}
+            <div className="mt-1 flex gap-3 text-white/50">
+              {tool.result.stars && (
+                <span className="flex items-center gap-1">
+                  <FaStar /> {tool.result.stars}
+                </span>
+              )}
+              {tool.result.forks && (
+                <span className="flex items-center gap-1">
+                  <FaCodeBranch /> {tool.result.forks}
+                </span>
+              )}
+              {tool.result.language && <span>{tool.result.language}</span>}
+            </div>
+          </div>
+        )}
+
+        {tool.result && tool.name === "web_search" && tool.result.type === "github_search" && (
+          <div className="mt-2 space-y-1">
+            {tool.result.results?.map((repo: any, i: number) => (
+              <div key={i} className="rounded bg-black/30 p-2">
+                <div className="flex items-center gap-2">
+                  <FaGithub className="text-white/70" />
+                  <a
+                    href={repo.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-cyan-400 hover:underline text-xs"
+                  >
+                    {repo.name}
+                  </a>
+                </div>
+                {repo.description && (
+                  <p className="mt-0.5 text-white/60 text-xs">{repo.description}</p>
+                )}
+                <div className="mt-0.5 flex gap-2 text-white/50 text-xs">
+                  {repo.stars && <span>★ {repo.stars}</span>}
+                  {repo.language && <span>{repo.language}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -140,7 +390,7 @@ export default function ChatBot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-6 right-6 z-50 flex h-[500px] w-[380px] flex-col rounded-2xl border border-white/10 bg-[#0a0a1a]/95 backdrop-blur-xl shadow-2xl"
+            className="fixed bottom-6 right-6 z-50 flex h-[520px] w-[400px] flex-col rounded-2xl border border-white/10 bg-[#0a0a1a]/95 backdrop-blur-xl shadow-2xl"
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
@@ -150,7 +400,7 @@ export default function ChatBot() {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-white">AI Assistant</h3>
-                  <p className="text-xs text-white/50">Powered by Grok</p>
+                  <p className="text-xs text-white/50">Powered by Grok • Agentic</p>
                 </div>
               </div>
               <button
@@ -173,14 +423,20 @@ export default function ChatBot() {
                       <FaRobot className="h-3.5 w-3.5 text-white" />
                     </div>
                   )}
-                  <div
-                    className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
-                      msg.role === "user"
-                        ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white"
-                        : "bg-white/10 text-white/90"
-                    }`}
-                  >
-                    {msg.content}
+                  <div className="max-w-[85%]">
+                    <div
+                      className={`rounded-2xl px-3 py-2 text-sm ${
+                        msg.role === "user"
+                          ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white"
+                          : "bg-white/10 text-white/90"
+                      }`}
+                    >
+                      {msg.content || (msg.isStreaming && <FaSpinner className="animate-spin" />)}
+                      {msg.isStreaming && msg.content && (
+                        <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-cyan-400" />
+                      )}
+                    </div>
+                    {msg.toolCalls && msg.toolCalls.map((tool, i) => renderToolCall(tool, i))}
                   </div>
                   {msg.role === "user" && (
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/20">
@@ -189,18 +445,6 @@ export default function ChatBot() {
                   )}
                 </div>
               ))}
-              {isLoading && (
-                <div className="flex gap-2">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-cyan-500 to-purple-500">
-                    <FaRobot className="h-3.5 w-3.5 text-white" />
-                  </div>
-                  <div className="flex items-center gap-1 rounded-2xl bg-white/10 px-3 py-2">
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-400" style={{ animationDelay: "0ms" }} />
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-400" style={{ animationDelay: "150ms" }} />
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-400" style={{ animationDelay: "300ms" }} />
-                  </div>
-                </div>
-              )}
               <div ref={messagesEndRef} />
             </div>
 
@@ -212,13 +456,13 @@ export default function ChatBot() {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask about Kenneth..."
+                  placeholder="Ask about Kenneth or his GitHub..."
                   className="flex-1 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder-white/40 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/25 transition-all"
-                  disabled={isLoading}
+                  disabled={isStreaming}
                 />
                 <motion.button
                   type="submit"
-                  disabled={!input.trim() || isLoading}
+                  disabled={!input.trim() || isStreaming}
                   className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 text-white disabled:opacity-50 transition-opacity"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
