@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 
-const SYSTEM_PROMPT = `You are Kenneth's AI assistant on his portfolio website. You help visitors learn about Kenneth's skills and experience.
+const SYSTEM_PROMPT = `You are Kenneth's AI assistant on a portfolio website. Help visitors learn about Kenneth's skills and experience.
 
 Kenneth's Profile:
 - AI Application Engineer specializing in LLM Integration, Agentic Workflows, Context Engineering
@@ -14,32 +14,15 @@ Kenneth's Profile:
 - Location: Hong Kong, China
 - GitHub: github.com/Kenneth0416
 
-Use web_search to find real-time information when needed. Be concise, friendly, and helpful.`;
+Use web_search for real-time information, x_search for X/Twitter content. Be concise and helpful.`;
 
-// Tool definitions for xAI native function calling
-const TOOLS = [
-  {
-    type: "function" as const,
-    function: {
-      name: "web_search",
-      description: "Search the web for real-time information, especially useful for finding GitHub repositories, news, or any current information.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "The search query, e.g., 'Kenneth0416 GitHub repos' or 'latest AI news'"
-          }
-        },
-        required: ["query"]
-      }
-    }
-  },
+// Client-side tool definitions (scroll_to needs frontend handling)
+const CLIENT_TOOLS = [
   {
     type: "function" as const,
     function: {
       name: "scroll_to",
-      description: "Scroll the page to a specific section. Use this when the user wants to navigate to a section.",
+      description: "Scroll the page to a specific section. Use when user wants to navigate.",
       parameters: {
         type: "object",
         properties: {
@@ -55,7 +38,13 @@ const TOOLS = [
   }
 ];
 
-// Execute client-side tools (scroll_to is handled by frontend)
+// Server-side tools (xAI handles execution automatically)
+const SERVER_TOOLS = [
+  { type: "web_search" as const },
+  { type: "x_search" as const },
+];
+
+// Execute client-side tools
 function executeClientTool(name: string, args: Record<string, any>): { result: any; clientAction?: any } {
   switch (name) {
     case "scroll_to":
@@ -68,10 +57,10 @@ function executeClientTool(name: string, args: Record<string, any>): { result: a
   }
 }
 
-// Web search using GitHub API
-async function webSearch(query: string): Promise<any> {
+// GitHub API search (fallback for specific GitHub queries)
+async function githubSearch(query: string): Promise<any> {
   try {
-    // GitHub repo lookup
+    // Direct repo lookup
     const repoMatch = query.match(/github\.com\/([^\/]+\/[^\/\s]+)/i);
     if (repoMatch) {
       const repoPath = repoMatch[1];
@@ -90,16 +79,14 @@ async function webSearch(query: string): Promise<any> {
           stars: data.stargazers_count,
           forks: data.forks_count,
           language: data.language,
-          topics: data.topics,
-          url: data.html_url,
-          lastUpdated: data.updated_at
+          url: data.html_url
         };
       }
     }
 
     // Search Kenneth's repos
-    if (query.toLowerCase().includes("github") || query.toLowerCase().includes("kenneth")) {
-      const searchTerm = query.replace(/github|kenneth|repos?|repositories?/gi, "").trim();
+    if (query.toLowerCase().includes("kenneth") || query.toLowerCase().includes("github")) {
+      const searchTerm = query.replace(/github|kenneth|repos?/gi, "").trim();
       const response = await fetch(
         `https://api.github.com/search/repositories?q=user:Kenneth0416+${encodeURIComponent(searchTerm)}&sort=updated`,
         {
@@ -122,10 +109,9 @@ async function webSearch(query: string): Promise<any> {
       }
     }
 
-    // Generic web search note
-    return { type: "search_note", message: `Searched for: ${query}` };
-  } catch (error) {
-    return { type: "error", message: "Search failed" };
+    return null;
+  } catch {
+    return null;
   }
 }
 
@@ -143,14 +129,14 @@ export async function POST(request: NextRequest) {
         ...inputMessages
       ];
 
-      // Agentic loop - continue until no more tool calls
+      // Agentic loop
       let iterationCount = 0;
       const maxIterations = 5;
 
       while (iterationCount < maxIterations) {
         iterationCount++;
 
-        // Call xAI API with tools
+        // Call xAI API with server-side + client-side tools
         const response = await fetch("https://api.x.ai/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -158,9 +144,9 @@ export async function POST(request: NextRequest) {
             "Authorization": `Bearer ${process.env.XAI_API_KEY}`,
           },
           body: JSON.stringify({
-            model: "grok-3",
+            model: "grok-4-fast",
             messages,
-            tools: TOOLS,
+            tools: [...SERVER_TOOLS, ...CLIENT_TOOLS],
             tool_choice: "auto",
             temperature: 0.7,
             max_tokens: 800,
@@ -169,6 +155,8 @@ export async function POST(request: NextRequest) {
         });
 
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error("xAI API error:", response.status, errorText);
           throw new Error(`Grok API error: ${response.status}`);
         }
 
@@ -178,7 +166,7 @@ export async function POST(request: NextRequest) {
         let buffer = "";
         let fullContent = "";
         let toolCalls: any[] = [];
-        let finishReason = "";
+        let toolOutputs: any[] = [];
 
         // Read streaming response
         while (true) {
@@ -199,7 +187,6 @@ export async function POST(request: NextRequest) {
               try {
                 const parsed = JSON.parse(data);
                 const delta = parsed.choices?.[0]?.delta;
-                finishReason = parsed.choices?.[0]?.finish_reason || finishReason;
 
                 // Handle content
                 if (delta?.content) {
@@ -210,13 +197,23 @@ export async function POST(request: NextRequest) {
                 // Handle tool calls (streaming)
                 if (delta?.tool_calls) {
                   for (const tc of delta.tool_calls) {
-                    const idx = tc.index;
+                    const idx = tc.index ?? 0;
                     if (!toolCalls[idx]) {
-                      toolCalls[idx] = { id: tc.id, function: { name: "", arguments: "" } };
+                      toolCalls[idx] = { id: tc.id || "", function: { name: "", arguments: "" } };
                     }
                     if (tc.id) toolCalls[idx].id = tc.id;
                     if (tc.function?.name) toolCalls[idx].function.name = tc.function.name;
                     if (tc.function?.arguments) toolCalls[idx].function.arguments += tc.function.arguments;
+                  }
+                }
+
+                // Handle server-side tool outputs (web_search, x_search results)
+                if (delta?.tool_outputs) {
+                  toolOutputs = delta.tool_outputs;
+                  for (const output of toolOutputs) {
+                    if (output.content) {
+                      await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "server_tool_output", content: output.content })}\n\n`));
+                    }
                   }
                 }
               } catch {
@@ -226,8 +223,13 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // If we have tool calls, execute them and continue the loop
+        // If we have tool calls, process them
         if (toolCalls.length > 0) {
+          // Separate client-side and server-side tool calls
+          const serverToolNames = ["web_search", "x_search", "code_execution"];
+          const clientToolCalls = toolCalls.filter(tc => !serverToolNames.includes(tc.function.name));
+          const serverToolCalls = toolCalls.filter(tc => serverToolNames.includes(tc.function.name));
+
           // Send tool call info to client
           await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "tool_calls_start", tools: toolCalls.map(tc => tc.function.name) })}\n\n`));
 
@@ -238,29 +240,40 @@ export async function POST(request: NextRequest) {
             tool_calls: toolCalls
           });
 
-          // Execute each tool and add results
-          for (const toolCall of toolCalls) {
+          // Process server-side tools (already executed by xAI)
+          for (const toolCall of serverToolCalls) {
+            await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "tool_executing", name: toolCall.function.name, args: JSON.parse(toolCall.function.arguments || "{}") })}\n\n`));
+
+            // Server tools are auto-executed, we get results via tool_outputs
+            // Add placeholder result to messages
+            const output = toolOutputs.find((o: any) => o.tool_call_id === toolCall.id);
+            const resultContent = output?.content || "Search completed";
+
+            await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "tool_result", name: toolCall.function.name, result: { type: "server_executed", summary: resultContent.substring(0, 200) } })}\n\n`));
+
+            messages.push({
+              role: "tool",
+              tool_call_id: toolCall.id,
+              content: resultContent
+            });
+          }
+
+          // Process client-side tools
+          for (const toolCall of clientToolCalls) {
             const toolName = toolCall.function.name;
-            const toolArgs = JSON.parse(toolCall.function.arguments);
+            const toolArgs = JSON.parse(toolCall.function.arguments || "{}");
+
+            await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "tool_executing", name: toolName, args: toolArgs })}\n\n`));
 
             let toolResult: any;
             let clientAction: any = null;
 
-            // Send tool execution status
-            await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "tool_executing", name: toolName, args: toolArgs })}\n\n`));
+            const execution = executeClientTool(toolName, toolArgs);
+            toolResult = execution.result;
+            clientAction = execution.clientAction;
 
-            if (toolName === "web_search") {
-              toolResult = await webSearch(toolArgs.query);
-            } else {
-              const execution = executeClientTool(toolName, toolArgs);
-              toolResult = execution.result;
-              clientAction = execution.clientAction;
-            }
-
-            // Send tool result to client
             await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "tool_result", name: toolName, result: toolResult, clientAction })}\n\n`));
 
-            // Add tool result to messages
             messages.push({
               role: "tool",
               tool_call_id: toolCall.id,
@@ -268,12 +281,11 @@ export async function POST(request: NextRequest) {
             });
           }
 
-          // Continue the loop to get the next response
+          // Continue loop to get final response
           continue;
         }
 
-        // No tool calls - we're done
-        // If there was content but no tool calls, we've already streamed it
+        // No tool calls - done
         break;
       }
 
