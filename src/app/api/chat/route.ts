@@ -103,17 +103,27 @@ export async function POST(request: NextRequest) {
 
   (async () => {
     try {
-      // If we have a tool result, continue the conversation
+      // Build messages array
       const messages: any[] = [
         { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: message }
       ];
 
       if (toolResult) {
+        // When we have tool results, add the context
+        messages.push({
+          role: "user",
+          content: message
+        });
         messages.push({
           role: "assistant",
-          content: `[TOOL_RESULT]${toolResult}[/TOOL_RESULT]`
+          content: `I searched for the information. Here are the results:`
         });
+        messages.push({
+          role: "user",
+          content: `Based on these search results, please provide a helpful summary:\n${toolResult}`
+        });
+      } else {
+        messages.push({ role: "user", content: message });
       }
 
       const response = await fetch("https://api.x.ai/v1/chat/completions", {

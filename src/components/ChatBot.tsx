@@ -202,9 +202,8 @@ export default function ChatBot() {
           }
         }
 
-        // Continue conversation with tool results
-        if (toolResults.length > 0 && text.length === 0) {
-          // Need to get final response with tool results
+        // Always continue conversation with tool results to get a summary
+        if (toolResults.length > 0) {
           const finalResponse = await fetch("/api/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -216,7 +215,7 @@ export default function ChatBot() {
 
           const finalReader = finalResponse.body?.getReader();
           if (finalReader) {
-            let finalContent = "";
+            let finalContent = text;
             while (true) {
               const { done, value } = await finalReader.read();
               if (done) break;
@@ -249,6 +248,21 @@ export default function ChatBot() {
                 }
               }
             }
+            // Update final content
+            setMessages((prev) => {
+              const newMessages = [...prev];
+              newMessages[assistantIndex] = {
+                role: "assistant",
+                content: finalContent,
+                toolCalls: tools.map((t) => ({
+                  ...t,
+                  status: "done" as const,
+                  result: t.result,
+                })),
+                isStreaming: false,
+              };
+              return newMessages;
+            });
           }
         }
       }
