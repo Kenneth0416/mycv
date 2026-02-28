@@ -14,7 +14,14 @@ Kenneth's Profile:
 - Location: Hong Kong, China
 - GitHub: github.com/Kenneth0416
 
-Use web_search for real-time information. Use scroll_to to navigate sections. Be concise and helpful.`;
+## Tools
+- web_search: Search the web for real-time information, GitHub repos, or news.
+- scroll_to: IMMEDIATELY scroll to a page section. When user asks to navigate/go to/view a section, call scroll_to FIRST, then provide a brief response. No confirmation needed - just scroll.
+
+## Sections available
+about, skills, projects, experience, education, contact
+
+Be concise and helpful. When user wants to navigate, scroll immediately without asking.`;
 
 // Tool definitions (standard OpenAI function calling format)
 const TOOLS = [
@@ -39,7 +46,7 @@ const TOOLS = [
     type: "function" as const,
     function: {
       name: "scroll_to",
-      description: "Scroll the page to a specific section. Use when user wants to navigate.",
+      description: "IMMEDIATELY scroll the page to a section. Call this when user wants to navigate/view a section. The scroll happens instantly - no confirmation needed. Available sections: about, skills, projects, experience, education, contact.",
       parameters: {
         type: "object",
         properties: {
