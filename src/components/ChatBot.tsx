@@ -215,6 +215,7 @@ export default function ChatBot() {
 
                   // Handle client actions (scroll, etc.)
                   if (event.clientAction?.type === "scroll") {
+                    console.log("Scroll triggered:", event.clientAction.section);
                     scrollToSection(event.clientAction.section);
                   }
                   break;
