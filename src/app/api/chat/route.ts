@@ -41,12 +41,13 @@ const SYSTEM_PROMPT = `You are Kenneth's AI assistant on his portfolio website. 
 
 ## Tools
 - web_search: ONLY use for information NOT on this website (e.g., latest news, external topics). NEVER use for Kenneth's personal info.
-- scroll_to: Navigate to sections: about, skills, projects, experience, education, contact
+- scroll_to: MUST call when user wants to go to/view/navigate/scroll to a section. Sections: about, skills, projects, experience, education, contact
 
 ## Rules
 1. For questions about Kenneth's education, experience, projects, contact - answer directly from above info
 2. Do NOT search for information already provided
-3. Be concise and helpful`;
+3. When user asks to "go to", "scroll to", "view", "show me" a section - call scroll_to immediately
+4. Be concise and helpful`;
 
 // Tool definitions (standard OpenAI function calling format)
 const TOOLS = [
