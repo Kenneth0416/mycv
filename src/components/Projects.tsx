@@ -11,7 +11,7 @@ const projects = [
     date: "Oct 2025 – Present",
     role: "MCP Backend Developer at EdUHK",
     description:
-      "Architected an MCP-based AI tool ecosystem for DSE math education with 17 standardized tool interfaces. Achieved 95% tool selection accuracy through context-aware prompt engineering.",
+      "Architected an MCP-based AI tool ecosystem for DSE math education with 17 standardized tool interfaces. Achieved 95% tool selection accuracy.",
     tags: ["Python", "SymPy", "MCP Protocol", "OpenAI API", "Prompt Chains", "LaTeX"],
     github: "https://github.com/Kenneth0416/MathPlatform",
   },
@@ -27,9 +27,9 @@ const projects = [
   {
     title: "SteamPlatForm",
     date: "2025 – 2026",
-    role: "Independent Architecture & Development at EdUHK",
+    role: "Independent Architecture & Development",
     description:
-      "Steam-inspired gaming platform with Next.js 15, 416 source files, 184 React components, 23 API endpoints. Full auth, game library, wishlist, cart, reviews, friends system.",
+      "Steam-inspired gaming platform with Next.js 15, 184 React components, 23 API endpoints. Full auth, game library, wishlist, cart, reviews.",
     tags: [
       "Next.js 15",
       "TypeScript",
@@ -82,9 +82,6 @@ const cardVariants = {
   },
 };
 
-const tagClassName =
-  "inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/70";
-
 export default function Projects() {
   return (
     <section id="projects" className="mx-auto max-w-6xl px-4 py-20">
@@ -94,55 +91,58 @@ export default function Projects() {
         </h2>
       </div>
       <motion.div
-        className="grid grid-cols-1 gap-6 md:grid-cols-2 auto-rows-fr"
+        className="grid grid-cols-1 gap-6 md:grid-cols-2"
         variants={containerVariants}
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.2 }}
       >
         {projects.map((project) => (
-          <TiltCard key={project.title} className="h-full" tiltX={10} tiltY={10}>
           <motion.article
+            key={project.title}
             variants={cardVariants}
-            className="h-full flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur transition-all duration-300"
+            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur transition-all duration-300 hover:border-cyan-500/30"
           >
-            <span className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/0 via-cyan-500/5 to-purple-500/0 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-            <span className="absolute inset-0 rounded-2xl border border-transparent transition-all duration-300 group-hover:border-cyan-500/30" style={{
-              background: "linear-gradient(#050507, #050507) padding-box, linear-gradient(90deg, rgba(0,240,255,0.5), rgba(168,85,247,0.5), rgba(0,240,255,0.5)) border-box",
-              border: "1px solid transparent",
-            }} />
-            <div className="relative flex h-full flex-1 flex-col gap-3 p-6">
-              <span className="absolute right-6 top-6 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-100/90">
-                {project.date}
-              </span>
-              <div className="space-y-1 pr-24">
-                <h3 className="text-xl font-semibold text-white">{project.title}</h3>
-                <p className="text-sm text-cyan-100/80">{project.role}</p>
+            <TiltCard tiltX={10} tiltY={10}>
+              <div className="flex min-h-[260px] flex-col gap-3 p-6">
+                <span className="absolute right-6 top-6 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-100/90">
+                  {project.date}
+                </span>
+                <div className="space-y-1 pr-20">
+                  <h3 className="text-xl font-semibold text-white">{project.title}</h3>
+                  <p className="text-sm text-cyan-100/80">{project.role}</p>
+                </div>
+                <p className="text-sm leading-relaxed text-white/70">{project.description}</p>
+                <div className="flex flex-1 items-end">
+                  <div className="flex flex-wrap gap-2">
+                    {project.tags.slice(0, 5).map((tag) => (
+                      <span
+                        key={`${project.title}-${tag}`}
+                        className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/70"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                    {project.tags.length > 5 && (
+                      <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/70">
+                        +{project.tags.length - 5}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <a
+                  className="mt-2 inline-flex items-center gap-2 rounded-full border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-100/90 transition-colors hover:bg-cyan-500/10 hover:text-cyan-50 w-fit"
+                  href={project.github}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`View ${project.title} on GitHub`}
+                >
+                  <FaGithub className="text-base" />
+                  <span>GitHub</span>
+                </a>
               </div>
-              <p className="text-sm leading-relaxed text-white/70 line-clamp-3">{project.description}</p>
-              <div className="flex flex-wrap gap-2 mt-auto pt-2">
-                {project.tags.slice(0, 5).map((tag) => (
-                  <span key={`${project.title}-${tag}`} className={tagClassName}>
-                    {tag}
-                  </span>
-                ))}
-                {project.tags.length > 5 && (
-                  <span className={tagClassName}>+{project.tags.length - 5}</span>
-                )}
-              </div>
-              <a
-                className="mt-auto inline-flex items-center gap-2 rounded-full border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-100/90 transition-colors hover:bg-cyan-500/10 hover:text-cyan-50 w-fit"
-                href={project.github}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`View ${project.title} on GitHub`}
-              >
-                <FaGithub className="text-base" />
-                <span>GitHub</span>
-              </a>
-            </div>
+            </TiltCard>
           </motion.article>
-          </TiltCard>
         ))}
       </motion.div>
     </section>

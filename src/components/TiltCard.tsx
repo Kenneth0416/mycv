@@ -51,7 +51,7 @@ export default function TiltCard({
   return (
     <motion.div
       ref={ref}
-      className={`relative ${className}`}
+      className={`relative h-full ${className}`}
       style={{
         perspective,
         transformStyle: "preserve-3d",
@@ -60,6 +60,7 @@ export default function TiltCard({
       onMouseLeave={handleMouseLeave}
     >
       <motion.div
+        className="h-full"
         style={{
           rotateX,
           rotateY,
