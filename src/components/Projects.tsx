@@ -94,7 +94,7 @@ export default function Projects() {
         </h2>
       </div>
       <motion.div
-        className="grid grid-cols-1 gap-6 md:grid-cols-2"
+        className="grid grid-cols-1 gap-6 md:grid-cols-2 auto-rows-fr"
         variants={containerVariants}
         initial="hidden"
         whileInView="visible"
@@ -104,31 +104,34 @@ export default function Projects() {
           <TiltCard key={project.title} className="h-full" tiltX={10} tiltY={10}>
           <motion.article
             variants={cardVariants}
-            className="h-full overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur transition-all duration-300"
+            className="h-full flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur transition-all duration-300"
           >
             <span className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/0 via-cyan-500/5 to-purple-500/0 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
             <span className="absolute inset-0 rounded-2xl border border-transparent transition-all duration-300 group-hover:border-cyan-500/30" style={{
               background: "linear-gradient(#050507, #050507) padding-box, linear-gradient(90deg, rgba(0,240,255,0.5), rgba(168,85,247,0.5), rgba(0,240,255,0.5)) border-box",
               border: "1px solid transparent",
             }} />
-            <div className="relative flex h-full flex-col gap-4 p-6">
+            <div className="relative flex h-full flex-1 flex-col gap-3 p-6">
               <span className="absolute right-6 top-6 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-100/90">
                 {project.date}
               </span>
-              <div className="space-y-2 pr-24">
+              <div className="space-y-1 pr-24">
                 <h3 className="text-xl font-semibold text-white">{project.title}</h3>
                 <p className="text-sm text-cyan-100/80">{project.role}</p>
               </div>
-              <p className="text-sm leading-relaxed text-white/70">{project.description}</p>
-              <div className="flex flex-wrap gap-2">
-                {project.tags.map((tag) => (
+              <p className="text-sm leading-relaxed text-white/70 line-clamp-3">{project.description}</p>
+              <div className="flex flex-wrap gap-2 mt-auto pt-2">
+                {project.tags.slice(0, 5).map((tag) => (
                   <span key={`${project.title}-${tag}`} className={tagClassName}>
                     {tag}
                   </span>
                 ))}
+                {project.tags.length > 5 && (
+                  <span className={tagClassName}>+{project.tags.length - 5}</span>
+                )}
               </div>
               <a
-                className="mt-2 inline-flex items-center gap-2 rounded-full border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-100/90 transition-colors hover:bg-cyan-500/10 hover:text-cyan-50"
+                className="mt-auto inline-flex items-center gap-2 rounded-full border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-100/90 transition-colors hover:bg-cyan-500/10 hover:text-cyan-50 w-fit"
                 href={project.github}
                 target="_blank"
                 rel="noopener noreferrer"
