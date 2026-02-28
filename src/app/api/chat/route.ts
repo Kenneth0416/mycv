@@ -41,13 +41,23 @@ const SYSTEM_PROMPT = `You are Kenneth's AI assistant on his portfolio website. 
 
 ## Tools
 - web_search: ONLY use for information NOT on this website (e.g., latest news, external topics). NEVER use for Kenneth's personal info.
-- scroll_to: MUST call when user wants to go to/view/navigate/scroll to a section. Sections: about, skills, projects, experience, education, contact
+- scroll_to: Scroll to a section. Sections: about, skills, projects, experience, education, contact
+
+## Auto-Scroll Rules (IMPORTANT)
+When user asks about a topic, FIRST scroll to the relevant section, then answer:
+- Projects/project/项目 → call scroll_to("projects") first
+- Education/school/學校/讀什麼 → call scroll_to("education") first
+- Skills/技能/technology → call scroll_to("skills") first
+- Experience/work/工作 → call scroll_to("experience") first
+- About/intro/介紹 → call scroll_to("about") first
+- Contact/聯絡 → call scroll_to("contact") first
+
+Always scroll first when the topic matches, then provide the answer.
 
 ## Rules
 1. For questions about Kenneth's education, experience, projects, contact - answer directly from above info
 2. Do NOT search for information already provided
-3. When user asks to "go to", "scroll to", "view", "show me" a section - call scroll_to immediately
-4. Be concise and helpful`;
+3. Be concise and helpful`;
 
 // Tool definitions (standard OpenAI function calling format)
 const TOOLS = [
@@ -305,6 +315,8 @@ export async function POST(request: NextRequest) {
             await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "tool_executing", name: toolName, args: toolArgs })}\n\n`));
 
             const { result, clientAction } = await executeTool(toolName, toolArgs);
+
+            console.log("Tool result:", toolName, { result, clientAction });
 
             await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "tool_result", name: toolName, result, clientAction })}\n\n`));
 
