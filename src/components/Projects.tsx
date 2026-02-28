@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { FaGithub } from "react-icons/fa";
+import { FaGithub, FaExternalLinkAlt } from "react-icons/fa";
 import TiltCard from "./TiltCard";
 import TextScramble from "./TextScramble";
 
@@ -40,6 +40,25 @@ const projects = [
       "Vercel",
     ],
     github: "https://github.com/Kenneth0416/SteamPlatForm",
+  },
+  {
+    title: "HKMJ — 港麻記帳",
+    date: "2025",
+    role: "Full-Stack PWA Development",
+    description:
+      "Professional Hong Kong Mahjong scoring PWA with bilingual UI, offline support, custom rules, game history, and live deployment at hkmj.app.",
+    tags: ["React 19", "TypeScript", "PWA", "Vercel", "Bilingual"],
+    github: "https://github.com/Kenneth0416/HKMJ",
+    demo: "https://hkmj.app",
+  },
+  {
+    title: "Markdown-Converter-Web",
+    date: "2025",
+    role: "Full-Stack Tool Development",
+    description:
+      "Document-to-Markdown converter built with Flask and MarkItDown. Supports PDF and multiple formats with Docker deployment ready.",
+    tags: ["Flask", "Python", "MarkItDown", "Docker", "HTML"],
+    github: "https://github.com/Kenneth0416/Markdown-Converter-Web",
   },
   {
     title: "Crisis-Sim",
@@ -130,16 +149,30 @@ export default function Projects() {
                     )}
                   </div>
                 </div>
-                <a
-                  className="mt-2 inline-flex items-center gap-2 rounded-full border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-100/90 transition-colors hover:bg-cyan-500/10 hover:text-cyan-50 w-fit"
-                  href={project.github}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`View ${project.title} on GitHub`}
-                >
-                  <FaGithub className="text-base" />
-                  <span>GitHub</span>
-                </a>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <a
+                    className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-100/90 transition-colors hover:bg-cyan-500/10 hover:text-cyan-50"
+                    href={project.github}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`View ${project.title} on GitHub`}
+                  >
+                    <FaGithub className="text-base" />
+                    <span>GitHub</span>
+                  </a>
+                  {"demo" in project && project.demo && (
+                    <a
+                      className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 px-4 py-2 text-sm font-medium text-emerald-100/90 transition-colors hover:bg-emerald-500/10 hover:text-emerald-50"
+                      href={project.demo}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`View ${project.title} demo`}
+                    >
+                      <FaExternalLinkAlt className="text-sm" />
+                      <span>Demo</span>
+                    </a>
+                  )}
+                </div>
               </div>
             </TiltCard>
           </motion.article>
