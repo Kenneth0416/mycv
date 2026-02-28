@@ -15,6 +15,8 @@ import {
   FaStar,
   FaCodeBranch,
 } from "react-icons/fa";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type ToolCall = {
   id: string;
@@ -44,6 +46,8 @@ const SECTION_MAP: Record<string, string> = {
   education: "education",
   contact: "contact",
 };
+
+const MAX_HISTORY_ROUNDS = 10;
 
 export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
@@ -91,15 +95,17 @@ export default function ChatBot() {
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsStreaming(true);
 
-    // Build conversation history for API
+    // Build conversation history for API (limit to last 10 rounds)
     const newHistory = [...conversationHistoryRef.current, { role: "user", content: userMessage }];
-    conversationHistoryRef.current = newHistory;
+    // Keep only last MAX_HISTORY_ROUNDS (each round = user + assistant)
+    const limitedHistory = newHistory.slice(-(MAX_HISTORY_ROUNDS * 2));
+    conversationHistoryRef.current = limitedHistory;
 
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newHistory }),
+        body: JSON.stringify({ messages: limitedHistory }),
       });
 
       const reader = response.body?.getReader();
@@ -425,9 +431,19 @@ export default function ChatBot() {
                           : "bg-white/10 text-white/90"
                       }`}
                     >
-                      {msg.content || (msg.isStreaming && <FaSpinner className="animate-spin" />)}
-                      {msg.isStreaming && msg.content && (
-                        <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-cyan-400" />
+                      {msg.role === "assistant" && msg.content ? (
+                        <div className="prose prose-invert prose-sm max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_code]:text-cyan-300 [&_code]:bg-white/10 [&_code]:px-1 [&_code]:rounded [&_a]:text-cyan-400 [&_a]:underline [&_strong]:text-white [&_strong]:font-semibold">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {msg.content}
+                          </ReactMarkdown>
+                          {msg.isStreaming && (
+                            <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-cyan-400" />
+                          )}
+                        </div>
+                      ) : msg.isStreaming ? (
+                        <FaSpinner className="animate-spin" />
+                      ) : (
+                        msg.content
                       )}
                     </div>
                     {msg.toolCalls && msg.toolCalls.length > 0 && (
