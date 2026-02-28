@@ -244,7 +244,6 @@ export async function POST(request: NextRequest) {
         let buffer = "";
         let fullContent = "";
         let toolCalls: any[] = [];
-        let contentChunks: string[] = []; // Buffer content if tool calls exist
 
         while (true) {
           const { done, value } = await reader.read();
@@ -265,9 +264,10 @@ export async function POST(request: NextRequest) {
                 const parsed = JSON.parse(data);
                 const delta = parsed.choices?.[0]?.delta;
 
+                // Stream content immediately
                 if (delta?.content) {
                   fullContent += delta.content;
-                  contentChunks.push(delta.content);
+                  await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "content", content: delta.content })}\n\n`));
                 }
 
                 if (delta?.tool_calls) {
@@ -289,7 +289,6 @@ export async function POST(request: NextRequest) {
         }
 
         if (toolCalls.length > 0) {
-          // Don't output content yet - wait for tool execution
           await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "tool_calls_start", tools: toolCalls.map(tc => tc.function.name) })}\n\n`));
 
           messages.push({
@@ -315,13 +314,11 @@ export async function POST(request: NextRequest) {
             });
           }
 
+          // Reset for next iteration
+          fullContent = "";
           continue;
         }
 
-        // No tool calls - output buffered content
-        for (const chunk of contentChunks) {
-          await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "content", content: chunk })}\n\n`));
-        }
         break;
       }
 
