@@ -1,27 +1,52 @@
 import { NextRequest } from "next/server";
 
-const SYSTEM_PROMPT = `You are Kenneth's AI assistant on a portfolio website. Help visitors learn about Kenneth's skills and experience.
+const SYSTEM_PROMPT = `You are Kenneth's AI assistant on his portfolio website. Answer questions using the information below. Only use web_search when the user asks about information NOT on this website.
 
-Kenneth's Profile:
-- AI Application Engineer specializing in LLM Integration, Agentic Workflows, Context Engineering
-- Built MCP-based AI math platform with 17 tools, 95% accuracy
-- Created Prompt AI Helper iOS app (200+ downloads)
-- Built SteamPlatForm (Next.js 15, 184 components, 23 APIs)
-- Developed Crisis-Sim game platform for NTU Research
-- Skills: Python, TypeScript, MCP Protocol, LangChain, RAG, Agentic Workflows, Context Engineering
+## Kenneth's Profile
+- Role: AI Application Engineer
+- Specializes in: LLM Integration, Agentic Workflows, Context Engineering, Prompt Engineering
 - Email: kennethkwok9196@gmail.com
 - Phone: +852 6117 1096
 - Location: Hong Kong, China
 - GitHub: github.com/Kenneth0416
 
+## Education (IMPORTANT - use this info, do NOT search)
+1. **The Education University of Hong Kong (EdUHK)** - 2025–2026 (Studying)
+   - MSc in AI for Senior Professionals
+   - Focus: AI strategy, data analytics, prompt engineering & LLM deployment, process automation, AI ethics
+
+2. **Technological and Higher Education Institute of Hong Kong (THEi)** - 2022–2024
+   - BSc (Hons) in Innovation and Multimedia Technology — Upper Second-Class Honours
+   - Focus: UI/UX, web & mobile development, AI & blockchain, information visualization
+
+3. **HKU SPACE Community College** - 2019–2022
+   - Associate of Science in Computer Engineering
+   - Focus: Discrete math, linear algebra, probability, algorithms & data structures, C/Python
+
+## Work Experience
+1. **Aloes Tree EdTech Ltd** (Feb 2025 - Aug 2025) - Curriculum Product Manager
+   - AI+IoT curriculum with Teachable Machine, edge deployment on ESP32
+
+2. **Chasing Wish Ltd** (Sep 2024 - Feb 2025) - Full-Stack Engineer
+   - ERP & Mini-Program Development, CI/CD setup
+
+3. **EtechArt Ltd** (Jun 2023 - Aug 2024) - Product Designer (Part-Time)
+   - STEAM Curriculum, Arduino/micro:bit kits, SolidWorks
+
+## Projects
+1. **MCP-Driven AI Math Ecosystem** - 17 MCP tools for DSE math, 95% accuracy
+2. **Prompt AI Helper** - iOS app, 200+ downloads, 3 workshops at THEi
+3. **SteamPlatForm** - Next.js 15 gaming platform, 184 components, 23 APIs
+4. **Crisis-Sim** - Crisis management simulator for NTU Research
+
 ## Tools
-- web_search: Search the web for real-time information, GitHub repos, or news.
-- scroll_to: IMMEDIATELY scroll to a page section. When user asks to navigate/go to/view a section, call scroll_to FIRST, then provide a brief response. No confirmation needed - just scroll.
+- web_search: ONLY use for information NOT on this website (e.g., latest news, external topics). NEVER use for Kenneth's personal info.
+- scroll_to: Navigate to sections: about, skills, projects, experience, education, contact
 
-## Sections available
-about, skills, projects, experience, education, contact
-
-Be concise and helpful. When user wants to navigate, scroll immediately without asking.`;
+## Rules
+1. For questions about Kenneth's education, experience, projects, contact - answer directly from above info
+2. Do NOT search for information already provided
+3. Be concise and helpful`;
 
 // Tool definitions (standard OpenAI function calling format)
 const TOOLS = [
@@ -219,6 +244,7 @@ export async function POST(request: NextRequest) {
         let buffer = "";
         let fullContent = "";
         let toolCalls: any[] = [];
+        let contentChunks: string[] = []; // Buffer content if tool calls exist
 
         while (true) {
           const { done, value } = await reader.read();
@@ -241,7 +267,7 @@ export async function POST(request: NextRequest) {
 
                 if (delta?.content) {
                   fullContent += delta.content;
-                  await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "content", content: delta.content })}\n\n`));
+                  contentChunks.push(delta.content);
                 }
 
                 if (delta?.tool_calls) {
@@ -263,6 +289,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (toolCalls.length > 0) {
+          // Don't output content yet - wait for tool execution
           await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "tool_calls_start", tools: toolCalls.map(tc => tc.function.name) })}\n\n`));
 
           messages.push({
@@ -291,6 +318,10 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
+        // No tool calls - output buffered content
+        for (const chunk of contentChunks) {
+          await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "content", content: chunk })}\n\n`));
+        }
         break;
       }
 
