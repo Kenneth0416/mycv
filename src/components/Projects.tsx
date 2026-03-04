@@ -49,7 +49,7 @@ const projects = [
       "Professional Hong Kong Mahjong scoring PWA with bilingual UI, offline support, custom rules, game history, and live deployment at hkmj.app.",
     tags: ["React 19", "TypeScript", "PWA", "Vercel", "Bilingual"],
     github: "https://github.com/Kenneth0416/HKMJ",
-    demo: "https://hkmj.app",
+    demo: "https://hkmj-scorer.vercel.app",
   },
   {
     title: "Markdown-Converter-Web",
@@ -59,6 +59,7 @@ const projects = [
       "Document-to-Markdown converter built with Flask and MarkItDown. Supports PDF and multiple formats with Docker deployment ready.",
     tags: ["Flask", "Python", "MarkItDown", "Docker", "HTML"],
     github: "https://github.com/Kenneth0416/Markdown-Converter-Web",
+    demo: "https://convert-md.com",
   },
   {
     title: "Crisis-Sim",
