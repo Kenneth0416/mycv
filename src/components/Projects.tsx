@@ -121,10 +121,11 @@ export default function Projects() {
           <motion.article
             key={project.title}
             variants={cardVariants}
-            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur transition-all duration-300 hover:border-cyan-500/30"
+            className="group relative"
           >
             <TiltCard tiltX={10} tiltY={10}>
-              <div className="flex min-h-[260px] flex-col gap-3 p-6">
+              <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur transition-all duration-300 hover:border-cyan-500/30">
+                <div className="flex min-h-[260px] flex-col gap-3 p-6">
                 <span className="absolute right-6 top-6 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-100/90">
                   {project.date}
                 </span>
@@ -175,6 +176,7 @@ export default function Projects() {
                   )}
                 </div>
               </div>
+            </div>
             </TiltCard>
           </motion.article>
         ))}
