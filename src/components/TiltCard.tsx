@@ -67,7 +67,9 @@ export default function TiltCard({
           transformStyle: "preserve-3d",
         }}
       >
-        {children}
+        <div style={{ transform: "translateZ(50px)", transformStyle: "preserve-3d" }}>
+          {children}
+        </div>
       </motion.div>
     </motion.div>
   );
