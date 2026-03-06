@@ -121,55 +121,55 @@ export default function Projects() {
           <motion.article
             key={project.title}
             variants={cardVariants}
-            className="group relative h-[420px]"
+            className="group relative h-[320px]"
           >
             <TiltCard tiltX={10} tiltY={10}>
-              <div className="h-full overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur transition-all duration-300 hover:border-cyan-500/30">
-                <div className="flex h-[420px] flex-col gap-3 p-6">
-                <span className="absolute right-6 top-6 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-100/90">
+              <div className="h-full overflow-hidden rounded-xl border border-white/10 bg-white/5 backdrop-blur transition-all duration-300 hover:border-cyan-500/30">
+                <div className="flex h-[320px] flex-col gap-2 p-5">
+                <span className="absolute right-5 top-5 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-cyan-100/90">
                   {project.date}
                 </span>
-                <div className="space-y-1 pr-20">
-                  <h3 className="text-xl font-semibold text-white">{project.title}</h3>
-                  <p className="text-sm text-cyan-100/80">{project.role}</p>
+                <div className="space-y-0.5 pr-20">
+                  <h3 className="text-lg font-semibold text-white">{project.title}</h3>
+                  <p className="text-xs text-cyan-100/80">{project.role}</p>
                 </div>
-                <p className="line-clamp-3 text-sm leading-relaxed text-white/70">{project.description}</p>
-                <div className="flex flex-1 flex-col justify-end gap-3">
-                  <div className="flex flex-wrap gap-2">
+                <p className="line-clamp-2 text-xs leading-relaxed text-white/70">{project.description}</p>
+                <div className="flex flex-1 flex-col justify-end gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {project.tags.slice(0, 5).map((tag) => (
                       <span
                         key={`${project.title}-${tag}`}
-                        className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/70"
+                        className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-medium text-white/70"
                       >
                         {tag}
                       </span>
                     ))}
                     {project.tags.length > 5 && (
-                      <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/70">
+                      <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-medium text-white/70">
                         +{project.tags.length - 5}
                       </span>
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                   <a
-                    className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-100/90 transition-colors hover:bg-cyan-500/10 hover:text-cyan-50"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/30 px-3 py-1.5 text-xs font-medium text-cyan-100/90 transition-colors hover:bg-cyan-500/10 hover:text-cyan-50"
                     href={project.github}
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={`View ${project.title} on GitHub`}
                   >
-                    <FaGithub className="text-base" />
+                    <FaGithub className="text-xs" />
                     <span>GitHub</span>
                   </a>
                   {"demo" in project && project.demo && (
                     <a
-                      className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 px-4 py-2 text-sm font-medium text-emerald-100/90 transition-colors hover:bg-emerald-500/10 hover:text-emerald-50"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 px-3 py-1.5 text-xs font-medium text-emerald-100/90 transition-colors hover:bg-emerald-500/10 hover:text-emerald-50"
                       href={project.demo}
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`View ${project.title} demo`}
                     >
-                      <FaExternalLinkAlt className="text-sm" />
+                      <FaExternalLinkAlt className="text-xs" />
                       <span>Demo</span>
                     </a>
                   )}
