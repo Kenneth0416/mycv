@@ -121,7 +121,7 @@ export default function Projects() {
           <motion.article
             key={project.title}
             variants={cardVariants}
-            className="group relative"
+            className="group relative h-[420px]"
           >
             <TiltCard tiltX={10} tiltY={10}>
               <div className="h-full overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur transition-all duration-300 hover:border-cyan-500/30">
