@@ -124,8 +124,8 @@ export default function Projects() {
             className="group relative"
           >
             <TiltCard tiltX={10} tiltY={10}>
-              <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur transition-all duration-300 hover:border-cyan-500/30">
-                <div className="flex min-h-[260px] flex-col gap-3 p-6">
+              <div className="h-full overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur transition-all duration-300 hover:border-cyan-500/30">
+                <div className="flex h-[420px] flex-col gap-3 p-6">
                 <span className="absolute right-6 top-6 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-100/90">
                   {project.date}
                 </span>
@@ -133,8 +133,8 @@ export default function Projects() {
                   <h3 className="text-xl font-semibold text-white">{project.title}</h3>
                   <p className="text-sm text-cyan-100/80">{project.role}</p>
                 </div>
-                <p className="text-sm leading-relaxed text-white/70">{project.description}</p>
-                <div className="flex flex-1 items-end">
+                <p className="line-clamp-3 text-sm leading-relaxed text-white/70">{project.description}</p>
+                <div className="flex flex-1 flex-col justify-end gap-3">
                   <div className="flex flex-wrap gap-2">
                     {project.tags.slice(0, 5).map((tag) => (
                       <span
@@ -150,8 +150,7 @@ export default function Projects() {
                       </span>
                     )}
                   </div>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2">
                   <a
                     className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-100/90 transition-colors hover:bg-cyan-500/10 hover:text-cyan-50"
                     href={project.github}
@@ -175,6 +174,7 @@ export default function Projects() {
                     </a>
                   )}
                 </div>
+              </div>
               </div>
             </div>
             </TiltCard>
